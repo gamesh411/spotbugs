@@ -1,0 +1,24 @@
+name: keep-master-updated
+on:
+  schedule:
+    - cron:  '*/30 * * * *'
+    # scheduled every 30 minutes
+
+  workflow_dispatch:  # click the button on Github repo!
+
+
+jobs:
+  sync_with_upstream:
+
+    runs-on: ubuntu-latest
+    name: Sync master with upstream
+
+    steps:
+
+      - name: Sync master with upstream master 
+        uses: gamesh411/sync-your-fork@main
+        with:
+          owner: spotbugs
+          base: master
+          head: master
+          merge_method: rebase
