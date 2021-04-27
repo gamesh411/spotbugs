@@ -1,15 +1,10 @@
 package edu.umd.cs.findbugs.detect;
 
-import static org.hamcrest.collection.IsEmptyIterable.emptyIterable;
-import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.assertThat;
-
 import java.nio.file.Paths;
 
 import org.junit.Rule;
 import org.junit.Test;
 
-import edu.umd.cs.findbugs.BugCollection;
 import edu.umd.cs.findbugs.test.SpotBugsRule;
 
 public class FindUnsatisfiedObligationTest {
@@ -22,7 +17,7 @@ public class FindUnsatisfiedObligationTest {
      */
     @Test
     public void testIssue60() {
-        BugCollection bugCollection = spotbugs.performAnalysis(Paths.get("../spotbugsTestCases/build/classes/java/main/lambdas/Issue60.class"));
-        assertThat(bugCollection, is(emptyIterable()));
+        spotbugs.performAnalysis(Paths.get("../spotbugsTestCases/build/classes/java/main/lambdas/Issue60.class"));
+        // TODO: use assertDoesNotThrow when upgrading to jUnit 5
     }
 }
