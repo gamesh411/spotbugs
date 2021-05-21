@@ -10,6 +10,9 @@ Currently the versioning policy of this project follows [Semantic Versioning v2.
 * Bump Saxon-HE from 10.3 to 10.5 ([#1513](https://github.com/spotbugs/spotbugs/pull/1513))
 * Function `mutableSignature()` improved and factored out from the `MutableStaticFields` detector
 
+### Added
+* Rule `DCN_NULLPOINTER_EXCEPTION` covers catching NullPointerExceptions in accordance with SEI Cert rule [ERR08-J](https://wiki.sei.cmu.edu/confluence/display/java/ERR08-J.+Do+not+catch+NullPointerException+or+any+of+its+ancestors) ([TODO: fill with #PR]())
+
 ## 4.2.3 - 2021-04-12
 
 ### Fixed
