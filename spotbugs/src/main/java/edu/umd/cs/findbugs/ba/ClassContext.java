@@ -604,7 +604,7 @@ public class ClassContext {
      *            the method
      * @return the DominatorsAnalysis
      */
-    public PostDominatorsAnalysis getNonImplicitExceptionDominatorsAnalysis(Method method) throws CFGBuilderException,
+    public DominatorsAnalysis getNonImplicitExceptionDominatorsAnalysis(Method method) throws CFGBuilderException,
             DataflowAnalysisException {
         return getMethodAnalysis(NonImplicitExceptionPostDominatorsAnalysis.class, method);
     }

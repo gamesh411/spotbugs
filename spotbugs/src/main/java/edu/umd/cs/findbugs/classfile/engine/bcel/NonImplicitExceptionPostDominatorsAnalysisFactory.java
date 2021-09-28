@@ -22,7 +22,7 @@ import java.util.BitSet;
 
 import edu.umd.cs.findbugs.ba.CFG;
 import edu.umd.cs.findbugs.ba.Dataflow;
-import edu.umd.cs.findbugs.ba.PostDominatorsAnalysis;
+import edu.umd.cs.findbugs.ba.DominatorsAnalysis;
 import edu.umd.cs.findbugs.classfile.CheckedAnalysisException;
 import edu.umd.cs.findbugs.classfile.IAnalysisCache;
 import edu.umd.cs.findbugs.classfile.MethodDescriptor;
@@ -55,7 +55,7 @@ public class NonImplicitExceptionPostDominatorsAnalysisFactory extends
         CFG cfg = getCFG(analysisCache, descriptor);
         NonImplicitExceptionPostDominatorsAnalysis analysis = new NonImplicitExceptionPostDominatorsAnalysis(cfg,
                 getReverseDepthFirstSearch(analysisCache, descriptor), getDepthFirstSearch(analysisCache, descriptor));
-        Dataflow<BitSet, PostDominatorsAnalysis> dataflow = new Dataflow<>(cfg, analysis);
+        Dataflow<BitSet, DominatorsAnalysis> dataflow = new Dataflow<>(cfg, analysis);
         dataflow.execute();
 
         return analysis;
