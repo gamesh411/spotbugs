@@ -33,6 +33,7 @@ import java.util.TreeSet;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 
+import edu.umd.cs.findbugs.classfile.engine.bcel.*;
 import org.apache.bcel.Const;
 import org.apache.bcel.classfile.Code;
 import org.apache.bcel.classfile.CodeException;
@@ -66,10 +67,6 @@ import edu.umd.cs.findbugs.classfile.Global;
 import edu.umd.cs.findbugs.classfile.IAnalysisCache;
 import edu.umd.cs.findbugs.classfile.MethodDescriptor;
 import edu.umd.cs.findbugs.classfile.analysis.ClassInfo;
-import edu.umd.cs.findbugs.classfile.engine.bcel.NonExceptionPostdominatorsAnalysis;
-import edu.umd.cs.findbugs.classfile.engine.bcel.NonImplicitExceptionPostDominatorsAnalysis;
-import edu.umd.cs.findbugs.classfile.engine.bcel.UnpackedBytecodeCallback;
-import edu.umd.cs.findbugs.classfile.engine.bcel.UnpackedCode;
 import edu.umd.cs.findbugs.util.MapCache;
 
 /**
@@ -593,7 +590,7 @@ public class ClassContext {
      */
     public DominatorsAnalysis getNonExceptionDominatorsAnalysis(Method method) throws CFGBuilderException,
             DataflowAnalysisException {
-        return getMethodAnalysis(DominatorsAnalysis.class, method);
+        return getMethodAnalysis(NonExceptionDominatorsAnalysis.class, method);
     }
 
     /**
@@ -604,9 +601,9 @@ public class ClassContext {
      *            the method
      * @return the DominatorsAnalysis
      */
-    public PostDominatorsAnalysis getNonImplicitExceptionDominatorsAnalysis(Method method) throws CFGBuilderException,
+    public DominatorsAnalysis getNonImplicitExceptionDominatorsAnalysis(Method method) throws CFGBuilderException,
             DataflowAnalysisException {
-        return getMethodAnalysis(NonImplicitExceptionPostDominatorsAnalysis.class, method);
+        return getMethodAnalysis(NonImplicitExceptionDominatorsAnalysis.class, method);
     }
 
     /**
@@ -619,7 +616,20 @@ public class ClassContext {
      */
     public PostDominatorsAnalysis getNonExceptionPostDominatorsAnalysis(Method method) throws CFGBuilderException,
             DataflowAnalysisException {
-        return getMethodAnalysis(NonExceptionPostdominatorsAnalysis.class, method);
+        return getMethodAnalysis(NonExceptionPostDominatorsAnalysis.class, method);
+    }
+
+    /**
+     * Get PostDominatorsAnalysis for given method, where implicit exception edges
+     * are ignored.
+     *
+     * @param method
+     *            the method
+     * @return the PostDominatorsAnalysis
+     */
+    public PostDominatorsAnalysis getNonImplicitExceptionPostDominatorsAnalysis(Method method) throws CFGBuilderException,
+            DataflowAnalysisException {
+        return getMethodAnalysis(NonImplicitExceptionPostDominatorsAnalysis.class, method);
     }
 
     /**
