@@ -13,11 +13,11 @@ import edu.umd.cs.findbugs.classfile.MethodDescriptor;
  *
  * @author David Hovemeyer
  */
-public class DominatorsAnalysisFactory extends AnalysisFactory<DominatorsAnalysis> {
+public class NonExceptionDominatorsAnalysisFactory extends AnalysisFactory<DominatorsAnalysis> {
     /**
      * Constructor.
      */
-    public DominatorsAnalysisFactory() {
+    public NonExceptionDominatorsAnalysisFactory() {
         super("non-exception dominators analysis", DominatorsAnalysis.class);
     }
 

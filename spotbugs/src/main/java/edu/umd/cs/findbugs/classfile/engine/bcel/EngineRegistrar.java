@@ -62,7 +62,7 @@ public class EngineRegistrar implements IAnalysisEngineRegistrar {
         new CFGFactory(), new UsagesRequiringNonNullValuesFactory(), new ValueNumberDataflowFactory(),
         new IsNullValueDataflowFactory(), new TypeDataflowFactory(), new DepthFirstSearchFactory(),
         new ReverseDepthFirstSearchFactory(), new UnpackedCodeFactory(), new LockDataflowFactory(), new LockCheckerFactory(),
-        new ReturnPathDataflowFactory(), new DominatorsAnalysisFactory(), new NonExceptionPostdominatorsAnalysisFactory(),
+        new ReturnPathDataflowFactory(), new NonExceptionDominatorsAnalysisFactory(), new NonExceptionPostdominatorsAnalysisFactory(),
         new NonImplicitExceptionPostDominatorsAnalysisFactory(), new ExceptionSetFactoryFactory(),
         new ParameterSignatureListFactory(), new ConstantDataflowFactory(), new LoadDataflowFactory(),
         new StoreDataflowFactory(), new LoadedFieldSetFactory(), new LiveLocalStoreDataflowFactory(),

@@ -1522,7 +1522,7 @@
       <ClassStats class="edu.umd.cs.findbugs.classfile.engine.bcel.ConstantDataflowFactory" sourceFile="ConstantDataflowFactory.java" interface="false" size="14" bugs="0"/>
       <ClassStats class="edu.umd.cs.findbugs.classfile.engine.bcel.ConstantPoolGenFactory" sourceFile="ConstantPoolGenFactory.java" interface="false" size="10" bugs="0"/>
       <ClassStats class="edu.umd.cs.findbugs.classfile.engine.bcel.DepthFirstSearchFactory" sourceFile="DepthFirstSearchFactory.java" interface="false" size="11" bugs="0"/>
-      <ClassStats class="edu.umd.cs.findbugs.classfile.engine.bcel.DominatorsAnalysisFactory" sourceFile="DominatorsAnalysisFactory.java" interface="false" size="13" bugs="0"/>
+      <ClassStats class="edu.umd.cs.findbugs.classfile.engine.bcel.NonExceptionDominatorsAnalysisFactory" sourceFile="NonExceptionDominatorsAnalysisFactory.java" interface="false" size="13" bugs="0"/>
       <ClassStats class="edu.umd.cs.findbugs.classfile.engine.bcel.EngineRegistrar" sourceFile="EngineRegistrar.java" interface="false" size="18" bugs="0"/>
       <ClassStats class="edu.umd.cs.findbugs.classfile.engine.bcel.ExceptionSetFactoryFactory" sourceFile="ExceptionSetFactoryFactory.java" interface="false" size="8" bugs="0"/>
       <ClassStats class="edu.umd.cs.findbugs.classfile.engine.bcel.ForwardTypeQualifierDataflowFactoryFactory" sourceFile="ForwardTypeQualifierDataflowFactoryFactory.java" interface="false" size="8" bugs="0"/>
