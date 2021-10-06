@@ -1,8 +1,8 @@
 # Check projects with Spotbugs Github Action
 
 [Github Actions](https://docs.github.com/en/actions)  can be used to automate CI/CD activities.
-A series of such action is called a workflow.
-This repository contains 2 workflows which can be used to automatically run a Spotbugs Java projects.
+A series of such actions is called a workflow.
+This repository contains 2 workflows which can be used to automatically run a Spotbugs Java project.
 [check-projects](check-projects.yml) is responsible for running the analysis.
 [check-projects-comment](check-projects-comment.yml) is responsible for publishing the results of the analysis.
 The separation of the commenting phase is due to [security reasons](https://securitylab.github.com/research/github-actions-preventing-pwn-requests/).
@@ -17,7 +17,7 @@ The list of projects currently analyzed:
   - matsim-libs
   - jenkins
 
-The workflow analyses these projcts via the baseline and the new versions of Spotbugs and produces a diff of analysis results for each one.
+The workflow analyses these projects via the baseline and the new versions of Spotbugs and produces a diff of analysis results for each one.
 The diff of the analysis results can be used to see if the PR produces new results and/or old results are gone.
 Time of analysis is also measured in order to catch performance regressions.
 
@@ -30,5 +30,5 @@ Both [check-projects.yml](check-projects.yml) and [check-projects-comment.yml](c
 
 ## Usage
 
-Once installed you can use the workflows by creating a feature branch in you fork, and creating a pull-request from that branch to your forks master branch.
-The outcome of the analysis is seen on the job status of the PR, and the diff of results can be seen as PR comment.
+Once installed you can use the workflows by creating a feature branch in your fork, and creating a pull-request from that branch to your fork's master branch.
+The outcome of the analysis is seen on the job status of the PR, and the diff of the results can be seen as PR comment.
