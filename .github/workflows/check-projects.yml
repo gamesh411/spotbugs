@@ -54,26 +54,21 @@ jobs:
       - name: Cache analyzed Spotbugs
         uses: actions/cache@v2
         with:
-          path: check-project-targets/spotbugs-4.4.1.jar
-          key: ${{ runner.os }}-targets-spotbugs-${{ hashFiles('check-project-targets/spotbugs-4.4.1.jar') }}
+          path: spotbugs-4.4.1.jar
+          key: ${{ runner.os }}-targets-spotbugs-${{ hashFiles('spotbugs-4.4.1.jar') }}
           restore-keys: |
             ${{ runner.os }}-targets-spotbugs-
 
       - name: Download Spotbugs to analyze
         run: |
-          if [[ -f spotbugs-4.4.1.jar ]]; then
-            echo "Using cached Spotbugs 4.4.1"
-          else
-            echo "Downloading Spotbugs 4.4.1"
-            wget https://repo1.maven.org/maven2/com/github/spotbugs/spotbugs/4.4.1/spotbugs-4.4.1.jar
-          fi
-        working-directory: check-project-targets
+          [[ ! -f spotbugs-4.4.1.jar ]] && \
+            wget -nv https://repo1.maven.org/maven2/com/github/spotbugs/spotbugs/4.4.1/spotbugs-4.4.1.jar -O spotbugs-4.4.1.jar
 
       - name: Check Spotbugs with baseline
         run: |
           baseline_start="$(date +%s)"
           spotbugs-baseline/spotbugs/build/install/spotbugs/bin/spotbugs -textui \
-            check-projects-targets/spotbugs-4.4.1.jar \
+            spotbugs-4.4.1.jar \
           | tee results_baseline
           baseline_end="$(date +%s)"
           echo "$((baseline_end - baseline_start))" > baseline_time
@@ -82,7 +77,7 @@ jobs:
         run: |
           new_start="$(date +%s)"
           spotbugs/build/install/spotbugs/bin/spotbugs -textui \
-            check-projects-targets/spotbugs-4.4.1.jar \
+            spotbugs-4.4.1.jar \
           | tee results_new
           new_end="$(date +%s)"
           echo "$((new_end - new_start))" > new_time
@@ -156,26 +151,21 @@ jobs:
       - name: Cache analyzed Matsim
         uses: actions/cache@v2
         with:
-          path: check-project-targets/matsim-12.0-2020w02-avoev.0.jar
-          key: ${{ runner.os }}-targets-matsim-${{ hashFiles('check-project-targets/matsim-12.0-2020w02-avoev.0.jar') }}
+          path: matsim-12.0-2020w02-avoev.0.jar
+          key: ${{ runner.os }}-targets-matsim-${{ hashFiles('matsim-12.0-2020w02-avoev.0.jar') }}
           restore-keys: |
             ${{ runner.os }}-targets-matsim-
 
       - name: Download Matsim to analyze
         run: |
-          if [[ -f matsim-12.0-2020w02-avoev.0.jar ]]; then
-            echo "Using cached Matsim 12.0-2020w02-avoev.0"
-          else
-            echo "Downloading Matsim 12.0-2020w02-avoev.0"
-            wget https://jcenter.bintray.com/org/matsim/matsim/12.0-2020w02-avoev.0/matsim-12.0-2020w02-avoev.0.jar
-          fi
-        working-directory: check-project-targets
+          [[ ! -f matsim-12.0-2020w02-avoev.0.jar ]] && \
+            wget -nv https://jcenter.bintray.com/org/matsim/matsim/12.0-2020w02-avoev.0/matsim-12.0-2020w02-avoev.0.jar -O matsim-12.0-2020w02-avoev.0.jar
 
       - name: Check Matsim with baseline
         run: |
           baseline_start="$(date +%s)"
           spotbugs-baseline/spotbugs/build/install/spotbugs/bin/spotbugs -textui \
-            check-projects-targets/matsim-12.0-2020w02-avoev.0.jar \
+            matsim-12.0-2020w02-avoev.0.jar \
           | tee results_baseline
           baseline_end="$(date +%s)"
           echo "$((baseline_end - baseline_start))" > baseline_time
@@ -184,7 +174,7 @@ jobs:
         run: |
           new_start="$(date +%s)"
           spotbugs/build/install/spotbugs/bin/spotbugs -textui \
-            check-projects-targets/matsim-12.0-2020w02-avoev.0.jar \
+            matsim-12.0-2020w02-avoev.0.jar \
           | tee results_new
           new_end="$(date +%s)"
           echo "$((new_end - new_start))" > new_time
@@ -258,26 +248,21 @@ jobs:
       - name: Cache analyzed Jenkins
         uses: actions/cache@v2
         with:
-          path: check-project-targets/jenkins-war-2.314.war
-          key: ${{ runner.os }}-targets-jenkins-${{ hashFiles('check-project-targets/jenkins-war-2.314.war') }}
+          path: jenkins-war-2.314.war
+          key: ${{ runner.os }}-targets-jenkins-${{ hashFiles('jenkins-war-2.314.war') }}
           restore-keys: |
             ${{ runner.os }}-targets-jenkins-
 
       - name: Download Jenkins to analyze
         run: |
-          if [[ -f jenkins-war-2.314.war ]]; then
-            echo "Using cached Jenkins 2.314"
-          else
-            echo "Downloading Jenkins 2.314"
-            wget https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/2.314/jenkins-war-2.314.war
-          fi
-        working-directory: check-project-targets
+          [[ ! -f jenkins-war-2.314.war ]] && \
+            wget -nv https://repo.jenkins-ci.org/releases/org/jenkins-ci/main/jenkins-war/2.314/jenkins-war-2.314.war -O jenkins-war-2.314.war
 
       - name: Check Jenkins with baseline
         run: |
           baseline_start="$(date +%s)"
           spotbugs-baseline/spotbugs/build/install/spotbugs/bin/spotbugs -textui \
-            check-projects-targets/jenkins-war-2.314.war \
+            jenkins-war-2.314.war \
           | tee results_baseline
           baseline_end="$(date +%s)"
           echo "$((baseline_end - baseline_start))" > baseline_time
@@ -286,7 +271,7 @@ jobs:
         run: |
           new_start="$(date +%s)"
           spotbugs/build/install/spotbugs/bin/spotbugs -textui \
-            check-projects-targets/jenkins-war-2.314.war \
+            jenkins-war-2.314.war \
           | tee results_new
           new_end="$(date +%s)"
           echo "$((new_end - new_start))" > new_time
