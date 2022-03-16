@@ -166,6 +166,14 @@ This plugin contains all of the standard SpotBugs detectors.
   Detectors
   **********************************************************************
    -->
+  <Detector class="edu.umd.cs.findbugs.detect.ConstructorThrow">
+    <Details>
+<![CDATA[
+<p> Finds constructors that throw exceptions.
+</p>
+]]>
+    </Details>
+  </Detector>
   <Detector class="edu.umd.cs.findbugs.detect.OverridingMethodsMustInvokeSuperDetector">
     <Details>
 <![CDATA[
@@ -1276,6 +1284,13 @@ when no code in the block throws Exception. </p>
 ]]>
      </Details>
   </Detector>
+  <Detector class="edu.umd.cs.findbugs.detect.DontCatchNullPointerException">
+    <Details>
+<![CDATA[
+<p>Nullpointer exceptions should not be caught.</p>
+]]>
+     </Details>
+  </Detector>
   <Detector class="edu.umd.cs.findbugs.detect.FindFloatEquality">
     <Details>
 <![CDATA[
@@ -1689,11 +1704,74 @@ factory pattern to create these objects.</p>
       ]]>
     </Details>
   </Detector>
+  <Detector class="edu.umd.cs.findbugs.detect.ReflectionIncreaseAccessibility">
+    <Details>
+      <![CDATA[
+               <p>Detector for public methods instantiating a class they get in their parameter.</p>
+               <p>
+                  An attacker may invoke this method with a class that has no public constructor.
+               </p>
+      ]]>
+    </Details>
+  </Detector>
+  <Detector class="edu.umd.cs.findbugs.detect.FindOverridableMethodCall">
+    <Details>
+      <![CDATA[
+            <p>Detector for patterns where a constructor or a clone() method calls an overridable
+               method.</p>
+            <p>
+               Calling an overridable method from a constructor may result in the use of
+               uninitialized data. Calling such method from a clone() method is insecure.
+            </p>
+      ]]>
+    </Details>
+  </Detector>
+  <Detector class="edu.umd.cs.findbugs.detect.FindInstanceLockOnSharedStaticData">
+    <Details>
+      <![CDATA[
+            <p>
+              Detector for patterns where a shared static data is modified by either an instance level non-static synchronized
+              method, or inside a synchronized block, which used a non-static lock object.
+            </p>
+            <p>
+               Programs must not use instance locks to protect static shared data because instance locks are ineffective
+               when two or more instances of the class are created.
+               Consequently, failure to use a static lock object leaves the shared state unprotected against concurrent access.
+            </p>
+      ]]>
+    </Details>
+  </Detector>
+  <Detector class="edu.umd.cs.findbugs.detect.PermissionsSuper">
+    <Details>
+      <![CDATA[
+            <p>Checks method getPermissions() of classes implementing interface
+               java.security.SecureClassLoader. The methods must always call
+               super.getPermissions() to get the initial value of the object
+               which they return at the end.
+              </p>
+              ]]>
+    </Details>
+  </Detector>
   <!--
   **********************************************************************
   BugPatterns
   **********************************************************************
    -->
+  <BugPattern type="CT_CONSTRUCTOR_THROW">
+    <ShortDescription> Be wary of letting constructors throw exceptions. </ShortDescription>
+    <LongDescription> Exception thrown in class {0} at {1} will leave the constructor. The object under construction remains partially initialized and may be vulnerable to Finalizer attacks. </LongDescription>
+    <Details>
+      <![CDATA[
+            <p>Classes that throw exceptions in their constructors are vulnerable to Finalizer attacks</p>
+
+            <p>A finalizer attack can be prevented, by declaring the class final, using an empty finalizer declared as final, or by a clever use of a private constructor.</p>
+
+            <p>See <a href="https://wiki.sei.cmu.edu/confluence/display/java/OBJ11-J.+Be+wary+of+letting+constructors+throw+exceptions"><code>SEI CERT Rule OBJ-11</code></a>
+            for more information.
+            </p>
+            ]]>
+    </Details>
+  </BugPattern>
 
   <BugPattern type="JUA_DONT_ASSERT_INSTANCEOF_IN_TESTS">
     <ShortDescription> Asserting value of instanceof in tests is not recommended. </ShortDescription>
@@ -6916,6 +6994,39 @@ does not need to be created, just access the static methods directly using the c
   ]]>
      </Details>
   </BugPattern>
+  <BugPattern type="DCN_NULLPOINTER_EXCEPTION">
+    <ShortDescription>NullPointerException caught</ShortDescription>
+    <LongDescription>Do not catch NullPointerException like in {1}</LongDescription>
+    <Details>
+   <![CDATA[
+<p>
+According to SEI Cert rule <a href="https://wiki.sei.cmu.edu/confluence/display/java/ERR08-J.+Do+not+catch+NullPointerException+or+any+of+its+ancestors">ERR08-J</a> NullPointerException should not be caught. Handling NullPointerException is considered an inferior alternative to null-checking.
+<p>
+This non-compliant code catches a NullPointerException to see if an incoming parameter is null:
+</p>
+<pre><code>
+boolean hasSpace(String m) {
+  try {
+    String ms[] = m.split(" ");
+    return names.length != 1;
+  } catch (NullPointerException e) {
+    return false;
+  }
+}
+</code></pre>
+<p>
+A compliant solution would use a null-check as in the following example:
+</p>
+<pre><code>
+boolean hasSpace(String m) {
+    if (m == null) return false;
+    String ms[] = m.split(" ");
+    return names.length != 1;
+}
+</code></pre>
+    ]]>
+     </Details>
+  </BugPattern>
   <BugPattern type="FE_TEST_IF_EQUAL_TO_NOT_A_NUMBER">
     <ShortDescription>Doomed test for equality to NaN</ShortDescription>
     <LongDescription>Doomed test for equality to NaN in {1}</LongDescription>
@@ -8490,6 +8601,96 @@ after the call to initLogging, the logger configuration is lost
       </p>]]>
     </Details>
   </BugPattern>
+
+  <BugPattern type="REFLC_REFLECTION_MAY_INCREASE_ACCESSIBILITY_OF_CLASS">
+    <ShortDescription>Public method uses reflection to create a class it gets in its parameter which could increase the accessibility of any class</ShortDescription>
+    <LongDescription>Public method {1} uses reflection to create a class it gets in its parameter which could increase the accessibility of any class</LongDescription>
+    <Details>
+      <![CDATA[
+        <p>
+        <a href="https://wiki.sei.cmu.edu/confluence/display/java/SEC05-J.+Do+not+use+reflection+to+increase+accessibility+of+classes%2C+methods%2C+or+fields">SEI CERT SEC05-J</a> rule forbids the use of reflection to increase accessibility of classes, methods or fields. If
+        a class in a package provides a public method which takes an instance of java.lang.Class as its parameter and
+        calls its newInstance() method then it increases accessibility of classes in the same package without public
+        constructors. An attacker code may call this method and pass such class to create an instance of it. This should
+        be avoided by either making the method non-public or by checking for package access permission on the package.
+        A third possibility is to use the java.beans.Beans.instantiate() method instead of java.lang.Class.newInstance()
+        which checks whether the Class object being received has any public constructors.
+        </p>]]>
+    </Details>
+  </BugPattern>
+  <BugPattern type="REFLF_REFLECTION_MAY_INCREASE_ACCESSIBILITY_OF_FIELD">
+    <ShortDescription>Public method uses reflection to modify a field it gets in its parameter which could increase the accessibility of any class</ShortDescription>
+    <LongDescription>Public method {1} uses reflection to modify a field it gets in its parameter which could increase the accessibility of any class.</LongDescription>
+    <Details>
+      <![CDATA[
+        <p>
+        <a href="https://wiki.sei.cmu.edu/confluence/display/java/SEC05-J.+Do+not+use+reflection+to+increase+accessibility+of+classes%2C+methods%2C+or+fields">SEI CERT SEC05-J</a> rule forbids the use of reflection to increase accessibility of classes, methods or fields. If
+        a class in a package provides a public method which takes an instance of java.lang.reflect.Field as its
+        parameter and calls a setter (or setAccessible()) method then it increases accessibility of fields in the same
+        package which are private, protected or package private. An attacker code may call this method and pass such
+        field to change it. This should be avoided by either making the method non-public or by checking for package
+        access permission on the package.
+        </p>]]>
+    </Details>
+  </BugPattern>
+
+  <BugPattern type="MC_OVERRIDABLE_METHOD_CALL_IN_CONSTRUCTOR">
+    <ShortDescription>An overridable method is called from a constructor</ShortDescription>
+    <LongDescription>Overridable method {2} is called from constructor {1}.</LongDescription>
+    <Details>
+      <![CDATA[<p>
+      Calling an overridable method during in a constructor may result in the use of uninitialized data. It may also
+      leak the this reference of the partially constructed object. Only static, final or private methods should be
+      invoked from a constructor.</p>
+      <p>
+      See SEI CERT rule <a href="https://wiki.sei.cmu.edu/confluence/display/java/MET05-J.+Ensure+that+constructors+do+not+call+overridable+methods">MET05-J. Ensure that constructors do not call overridable methods</a>.
+      </p>]]>
+    </Details>
+  </BugPattern>
+
+  <BugPattern type="MC_OVERRIDABLE_METHOD_CALL_IN_CLONE">
+    <ShortDescription>An overridable method is called from the clone() method.</ShortDescription>
+    <LongDescription>Overridable method {2} is called from method clone() in class {0}.</LongDescription>
+    <Details>
+      <![CDATA[<p>
+      Calling overridable methods from the clone() method is insecure because a subclass could override the method,
+      affecting the behavior of clone(). It can also observe or modify the clone object in a partially initialized
+      state. Only static, final or private methods should be invoked from the clone() method.</p>
+      <p>
+      See SEI CERT rule <a href="https://wiki.sei.cmu.edu/confluence/pages/viewpage.action?pageId=88487921">MET06-J. Do not invoke overridable methods in clone()</a>.
+      </p>]]>
+    </Details>
+  </BugPattern>
+
+  <BugPattern type="SSD_DO_NOT_USE_INSTANCE_LOCK_ON_SHARED_STATIC_DATA">
+    <ShortDescription>Instance level lock was used on a shared static data</ShortDescription>
+    <LongDescription>Static field "{1}" is modified by an instance level {2}.</LongDescription>
+    <Details>
+      <![CDATA[<p>
+        Instance level synchronization, that modifies a static shared object could cause security leaks.
+        If the lock or the method is not static, that modifies the static field, and is synchronized,
+        that could leave the shared static data unprotected against concurrent access.
+        This could occur in two ways, if a synchronization method uses a non-static lock object,
+        or a synchronized method is declared as non-static. Both ways are ineffective.
+        Best solution is to use a private static final lock object to secure the shared static data.
+      </p>]]>
+    </Details>
+  </BugPattern>
+
+  <BugPattern type="PERM_SUPER_NOT_CALLED_IN_GETPERMISSIONS">
+    <ShortDescription>Custom class loader does not call its superclass's getPermissions()</ShortDescription>
+    <LongDescription>Custom class loader {1} does not call its superclass's getPermissions()</LongDescription>
+    <Details>
+      <![CDATA[
+       <p>
+       <a href="https://wiki.sei.cmu.edu/confluence/display/java/SEC07-J.+Call+the+superclass%27s+getPermissions%28%29+method+when+writing+a+custom+class+loader">SEI CERT rule SEC07-J</a> requires that custom class loaders must always call their superclass's getPermissions()
+       method in their own getPermissions() method to initialize the object they return at the end. Omitting it means
+       that a class defined using this custom class loader has permissions that are completely independent of those
+       specified in the systemwide policy file. In effect, the class's permissions override them.
+       </p>
+      ]]>
+    </Details>
+  </BugPattern>
   <!--
   **********************************************************************
    BugCodes
@@ -8593,6 +8794,7 @@ after the call to initLogging, the logger configuration is lost
   <BugCode abbrev="MF">Masked Field</BugCode>
   <BugCode abbrev="WMI">Inefficient Map Iterator</BugCode>
   <BugCode abbrev="ISC">Instantiated Static Class</BugCode>
+  <BugCode abbrev="DCN">Don't Catch NullPointer Exception</BugCode>
   <BugCode abbrev="REC">RuntimeException capture</BugCode>
   <BugCode abbrev="FE">Test for floating point equality</BugCode>
   <BugCode abbrev="UM">Unnecessary Math on constants</BugCode>
@@ -8635,4 +8837,10 @@ after the call to initLogging, the logger configuration is lost
   <BugCode abbrev="DL">Unintended contention or possible deadlock due to locking on shared objects</BugCode>
   <BugCode abbrev="JUA">Problems in JUnit Assertions</BugCode>
   <BugCode abbrev="EOS">Bad End of Stream check</BugCode>
+  <BugCode abbrev="REFLC">Reflection increasing accessibility of classes</BugCode>
+  <BugCode abbrev="REFLF">Reflection increasing accessibility of fields</BugCode>
+  <BugCode abbrev="MC">Dangerous call to overridable method</BugCode>
+  <BugCode abbrev="CT">Constructor throws</BugCode>
+  <BugCode abbrev="SSD">Do not use an instance lock to protect shared static data</BugCode>
+  <BugCode abbrev="PERM">Custom class loader does not call its superclass's getPermissions()</BugCode>
 </MessageCollection>

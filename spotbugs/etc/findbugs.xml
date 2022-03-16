@@ -549,6 +549,8 @@
                     reports="ISC_INSTANTIATE_STATIC_CLASS"/>
           <Detector class="edu.umd.cs.findbugs.detect.RuntimeExceptionCapture"
                     reports="REC_CATCH_EXCEPTION" speed="fast"/>
+          <Detector class="edu.umd.cs.findbugs.detect.DontCatchNullPointerException"
+                    reports="DCN_NULLPOINTER_EXCEPTION" speed="fast"/>
           <Detector class="edu.umd.cs.findbugs.detect.FindFloatEquality" speed="fast"
                     reports="FE_FLOATING_POINT_EQUALITY,FE_TEST_IF_EQUAL_TO_NOT_A_NUMBER"/>
           <Detector class="edu.umd.cs.findbugs.detect.FindUnsatisfiedObligation" speed="slow"
@@ -651,11 +653,22 @@
                     reports="JUA_DONT_ASSERT_INSTANCEOF_IN_TESTS"/>
           <Detector class="edu.umd.cs.findbugs.detect.FindBadEndOfStreamCheck" speed="fast"
                     reports="EOS_BAD_END_OF_STREAM_CHECK"/>
+          <Detector class="edu.umd.cs.findbugs.detect.ReflectionIncreaseAccessibility"
+                    reports="REFLC_REFLECTION_MAY_INCREASE_ACCESSIBILITY_OF_CLASS,REFLF_REFLECTION_MAY_INCREASE_ACCESSIBILITY_OF_FIELD"/>
+          <Detector class="edu.umd.cs.findbugs.detect.FindOverridableMethodCall"
+                    reports="MC_OVERRIDABLE_METHOD_CALL_IN_CONSTRUCTOR,MC_OVERRIDABLE_METHOD_CALL_IN_CLONE"/>
+          <Detector class="edu.umd.cs.findbugs.detect.ConstructorThrow" speed="fast"
+                    reports="CT_CONSTRUCTOR_THROW"/>
+          <Detector class="edu.umd.cs.findbugs.detect.FindInstanceLockOnSharedStaticData" speed="fast"
+                    reports="SSD_DO_NOT_USE_INSTANCE_LOCK_ON_SHARED_STATIC_DATA"/>
+          <Detector class="edu.umd.cs.findbugs.detect.PermissionsSuper"
+                    reports="PERM_SUPER_NOT_CALLED_IN_GETPERMISSIONS"/>
             <!-- Bug Categories -->
            <BugCategory category="NOISE" hidden="true"/>
 
           <!-- Bug Codes -->
           <BugCode abbrev="USELESS_STRING"/>
+          <BugCode abbrev="DCN"/>
           <BugCode abbrev="DMI" cweid="440"/>
           <BugCode abbrev="CN" cweid="580"/>
           <BugCode abbrev="DLS" cweid="563"/>
@@ -676,10 +689,12 @@
           <BugCode abbrev="STCAL" cweid="366"/>
           <BugCode abbrev="ICAST" cweid="192"/>
           <BugCode abbrev="FB"/>
+          <BugCode abbrev="CT"/>
           <BugCode abbrev="AT"/>
           <BugCode abbrev="JUA"/>
           <!-- Bug patterns -->
           <BugPattern abbrev="JUA" type="JUA_DONT_ASSERT_INSTANCEOF_IN_TESTS" category="BAD_PRACTICE" experimental="true" />
+          <BugPattern abbrev="CT" type="CT_CONSTRUCTOR_THROW" category="BAD_PRACTICE" />
           <BugPattern abbrev="CN" type="OVERRIDING_METHODS_MUST_INVOKE_SUPER" category="CORRECTNESS" />
           <BugPattern abbrev="CNT" type="CNT_ROUGH_CONSTANT_VALUE" category="BAD_PRACTICE"/>
 
@@ -1135,6 +1150,7 @@
           <BugPattern abbrev="WMI" type="WMI_WRONG_MAP_ITERATOR" category="PERFORMANCE"/>
           <BugPattern abbrev="ISC" type="ISC_INSTANTIATE_STATIC_CLASS" category="BAD_PRACTICE"/>
           <BugPattern abbrev="REC" type="REC_CATCH_EXCEPTION" category="STYLE" cweid="396"/>
+          <BugPattern abbrev="DCN" type="DCN_NULLPOINTER_EXCEPTION" category="STYLE"/>
           <BugPattern abbrev="FE" type="FE_FLOATING_POINT_EQUALITY" category="STYLE"/>
           <BugPattern abbrev="FE" type="FE_TEST_IF_EQUAL_TO_NOT_A_NUMBER" category="CORRECTNESS"/>
           <BugPattern abbrev="UM" type="UM_UNNECESSARY_MATH" category="PERFORMANCE"/>
@@ -1254,4 +1270,10 @@
           <BugPattern abbrev="NP" type="NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION" category="STYLE" />
           <BugPattern abbrev="NP" type="NP_METHOD_PARAMETER_RELAXING_ANNOTATION" category="STYLE" deprecated="true" />
           <BugPattern abbrev="EOS" type="EOS_BAD_END_OF_STREAM_CHECK" category="CORRECTNESS" />
+          <BugPattern abbrev="REFLC" type="REFLC_REFLECTION_MAY_INCREASE_ACCESSIBILITY_OF_CLASS" category="MALICIOUS_CODE" />
+          <BugPattern abbrev="REFLF" type="REFLF_REFLECTION_MAY_INCREASE_ACCESSIBILITY_OF_FIELD" category="MALICIOUS_CODE" />
+          <BugPattern abbrev="MC" type="MC_OVERRIDABLE_METHOD_CALL_IN_CONSTRUCTOR" category="MALICIOUS_CODE" />
+          <BugPattern abbrev="MC" type="MC_OVERRIDABLE_METHOD_CALL_IN_CLONE" category="MALICIOUS_CODE" />
+          <BugPattern abbrev="SSD" type="SSD_DO_NOT_USE_INSTANCE_LOCK_ON_SHARED_STATIC_DATA" category="CORRECTNESS" />
+          <BugPattern abbrev="PERM" type="PERM_SUPER_NOT_CALLED_IN_GETPERMISSIONS" category="MALICIOUS_CODE" />
 </FindbugsPlugin>
