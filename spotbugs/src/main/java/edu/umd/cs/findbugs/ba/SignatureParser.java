@@ -21,19 +21,24 @@ package edu.umd.cs.findbugs.ba;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
-
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
 
 import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.InvokeInstruction;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 
 /**
  * A simple class to parse method signatures.
  *
  * @author David Hovemeyer
+ *
+ * @deprecated This signature parser does not support generics, use GenericSignatureParser instead.
  */
+@Deprecated
 public class SignatureParser {
     private int totalArgumentSize;
 
@@ -44,14 +49,13 @@ public class SignatureParser {
         return totalArgumentSize;
     }
 
-    private @CheckForNull int parameterOffset[];
+    private int @Nullable [] parameterOffset;
 
-    @Nonnull
-    int[] getParameterOffset() {
+    int @NonNull [] getParameterOffset() {
         if (parameterOffset != null) {
             return parameterOffset;
         }
-        ArrayList<Integer> offsets = new ArrayList<>();
+        List<Integer> offsets = new ArrayList<>();
         Iterator<String> i = parameterSignatureIterator();
         int totalSize = 0;
 
@@ -77,8 +81,7 @@ public class SignatureParser {
 
     public int getSlotsFromTopOfStackForParameter(int paramNum) {
         int offset = getParameterOffset()[paramNum];
-        int result = totalArgumentSize - offset;
-        return result;
+        return totalArgumentSize - offset;
     }
 
     private class ParameterSignatureIterator implements Iterator<String> {
@@ -117,7 +120,7 @@ public class SignatureParser {
                     if (semi < 0) {
                         throw new IllegalStateException("Invalid method signature: " + signature);
                     }
-                    result.append(signature.substring(index, semi + 1));
+                    result.append(signature, index, semi + 1);
                     index = semi + 1;
                     break;
 
@@ -165,7 +168,7 @@ public class SignatureParser {
     }
 
     public String[] getArguments() {
-        ArrayList<String> result = new ArrayList<>();
+        List<String> result = new ArrayList<>();
         for (Iterator<String> i = parameterSignatureIterator(); i.hasNext();) {
             result.add(i.next());
         }
@@ -182,7 +185,7 @@ public class SignatureParser {
     }
 
     public Iterable<String> parameterSignatures() {
-        return () -> new ParameterSignatureIterator();
+        return ParameterSignatureIterator::new;
 
     }
 
@@ -249,7 +252,7 @@ public class SignatureParser {
      * @return int number of parameters
      */
     public static int getNumParametersForInvocation(InvokeInstruction inv, ConstantPoolGen cpg) {
-        SignatureParser sigParser = new SignatureParser(inv.getSignature(cpg));
+        GenericSignatureParser sigParser = new GenericSignatureParser(inv.getSignature(cpg));
         return sigParser.getNumParameters();
     }
 
@@ -272,10 +275,10 @@ public class SignatureParser {
 
     public static void main(String[] args) {
         if (args.length != 1) {
-            System.err.println("Usage: " + SignatureParser.class.getName() + " '<method signature>'");
+            System.err.println("Usage: " + GenericSignatureParser.class.getName() + " '<method signature>'");
             System.exit(1);
         }
-        SignatureParser parser = new SignatureParser(args[0]);
+        GenericSignatureParser parser = new GenericSignatureParser(args[0]);
         for (Iterator<String> i = parser.parameterSignatureIterator(); i.hasNext();) {
             System.out.println(i.next());
         }

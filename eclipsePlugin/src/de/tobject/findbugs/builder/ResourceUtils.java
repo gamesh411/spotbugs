@@ -30,8 +30,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import javax.annotation.CheckForNull;
-
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
@@ -48,6 +46,7 @@ import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.team.internal.core.subscribers.ChangeSet;
 import org.eclipse.ui.IAggregateWorkingSet;
 import org.eclipse.ui.IWorkingSet;
+import org.jspecify.annotations.Nullable;
 
 import de.tobject.findbugs.util.ProjectUtilities;
 import de.tobject.findbugs.util.Util;
@@ -90,11 +89,9 @@ public class ResourceUtils {
 
         @Override
         public boolean accept(File file) {
-            if (!file.isDirectory()) {
+            if (!file.isDirectory() && pat.matcher(file.getName()).matches()) {
                 // add the clzs to the list of files to be analyzed
-                if (pat.matcher(file.getName()).matches()) {
-                    findBugsProject.addFile(file.getAbsolutePath());
-                }
+                findBugsProject.addFile(file.getAbsolutePath());
             }
             return false;
         }
@@ -135,7 +132,7 @@ public class ResourceUtils {
         // XXX deleted packages should be considered to remove markers
         List<WorkItem> result = new ArrayList<>();
         List<IResourceDelta> foldersDelta = new ArrayList<>();
-        IResourceDelta affectedChildren[] = delta.getAffectedChildren();
+        IResourceDelta[] affectedChildren = delta.getAffectedChildren();
         for (int i = 0; i < affectedChildren.length; i++) {
             IResourceDelta childDelta = affectedChildren[i];
             IResource child = childDelta.getResource();
@@ -261,11 +258,7 @@ public class ResourceUtils {
             // non java projects: can happen only for changesets
             return;
         }
-        List<WorkItem> resources = projectsMap.get(project);
-        if (resources == null) {
-            resources = new ArrayList<>();
-            projectsMap.put(project, resources);
-        }
+        List<WorkItem> resources = projectsMap.computeIfAbsent(project, k -> new ArrayList<>());
         // do not need to check for duplicates, cause user cannot select
         // the same element twice
         if (!containsParents(resources, resource)) {
@@ -331,8 +324,7 @@ public class ResourceUtils {
      *            IResource
      * @return resource object or null
      */
-    @CheckForNull
-    public static WorkItem getWorkItem(Object element) {
+    public static @Nullable WorkItem getWorkItem(Object element) {
         if (element instanceof IResource) {
             IResource resource = (IResource) element;
             if (resource.getType() == IResource.FILE && !Util.isJavaArtifact(resource) || !resource.isAccessible()) {
@@ -375,8 +367,7 @@ public class ResourceUtils {
      *            IResource
      * @return resource object or null
      */
-    @javax.annotation.CheckForNull
-    public static IResource getResource(Object element) {
+    public static @Nullable IResource getResource(Object element) {
         if (element instanceof IJavaElement) {
             return ((IJavaElement) element).getResource();
         }

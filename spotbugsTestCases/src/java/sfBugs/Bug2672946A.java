@@ -11,10 +11,11 @@
 
 package sfBugs;
 
-import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 
 import jsr305.FieldsNonNullByDefault;
+
+import org.jspecify.annotations.NonNull;
 
 /* ********************
  * Behavior at filing: False positive NP, see Bug2672946B.java for details
@@ -31,13 +32,11 @@ class Bug2672946A {
         this.field = field;
     }
 
-    @Nonnull
-    public Bug2672946A getField() {
+    public @NonNull Bug2672946A getField() {
         return this.field;
     }
 
-    @Nonnull
-    public Bug2672946A getField2() {
+    public @NonNull Bug2672946A getField2() {
         return this.field;
     }
 }

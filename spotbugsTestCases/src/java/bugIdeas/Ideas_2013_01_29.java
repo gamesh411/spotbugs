@@ -5,11 +5,12 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.sql.ResultSet;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
 import javax.annotation.meta.TypeQualifier;
 import javax.annotation.meta.TypeQualifierNickname;
 import javax.annotation.meta.When;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 public class Ideas_2013_01_29 {
 
@@ -32,25 +33,32 @@ public class Ideas_2013_01_29 {
         return ResultSet.CLOSE_CURSORS_AT_COMMIT;
     }
 
-    @NotFoo Object test1(@Foo Object x) {
+    @NotFoo
+    Object test1(@Foo Object x) {
         return x;
     }
 
-    @Foo Object test2(@MaybeFoo Object x, boolean b) {
+    @Foo
+    Object test2(@MaybeFoo Object x, boolean b) {
         if (b) System.out.println("b");
         return x;
     }
-    @Foo Object test2(@MaybeFoo Object x, @Foo Object y, boolean b) {
+
+    @Foo
+    Object test2(@MaybeFoo Object x, @Foo Object y, boolean b) {
         if (b) return y;
         return x;
     }
 
-    @Nonnull Object testNullness(@CheckForNull Object x, boolean b) {
+    @NonNull
+    Object testNullness(@Nullable Object x, boolean b) {
         if (b)
             System.out.println("b");
         return x;
     }
-    @Nonnull Object testNullness(@CheckForNull Object x, @Foo Object y, boolean b) {
+
+    @NonNull
+    Object testNullness(@Nullable Object x, @Foo Object y, boolean b) {
         if (b) return y;
         return x;
     }

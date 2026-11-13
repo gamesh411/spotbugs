@@ -19,10 +19,10 @@
 
 package edu.umd.cs.findbugs.ba.generic;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
-
-import javax.annotation.CheckForNull;
 
 import org.apache.bcel.classfile.Attribute;
 import org.apache.bcel.classfile.Method;
@@ -31,15 +31,10 @@ import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.InvokeInstruction;
 import org.apache.bcel.generic.ObjectType;
 import org.apache.bcel.generic.Type;
-
+import org.jspecify.annotations.Nullable;
 
 /**
  * A simple class to parse method signatures that include generic information.
- * <p>
- *
- * Modified from edu.umd.cs.findbugs.ba.SignatureParser
- *
- * @author Nat Ayewah
  */
 public class GenericSignatureParser {
     private class ParameterSignatureIterator implements Iterator<String> {
@@ -208,7 +203,7 @@ public class GenericSignatureParser {
      * @return an iterator over the parameters of the generic signature of
      *         method. Returns null if the generic signature cannot be parsed
      */
-    public static @CheckForNull Iterator<String> getGenericSignatureIterator(Method target) {
+    public static @Nullable Iterator<String> getGenericSignatureIterator(Method target) {
         try {
             GenericSignatureParser parser = null;
             String genericSignature = null;
@@ -237,9 +232,19 @@ public class GenericSignatureParser {
         return null;
     }
 
+    public String[] getArguments() {
+        List<String> result = new ArrayList<>();
+        for (Iterator<String> i = parameterSignatureIterator(); i.hasNext();) {
+            result.add(i.next());
+        }
+        return result.toArray(new String[0]);
+    }
+
     /**
      * Compare a plain method signature to the a generic method Signature and
-     * return true if they match
+     * return true if they have the same number of parameters.
+     *
+     * @see GenericSignatureParser#getNumParameters()
      */
     public static boolean compareSignatures(String plainSignature, String genericSignature) {
         GenericSignatureParser plainParser = new GenericSignatureParser(plainSignature);

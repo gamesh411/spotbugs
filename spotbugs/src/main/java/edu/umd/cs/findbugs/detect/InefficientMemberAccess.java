@@ -30,7 +30,7 @@ import edu.umd.cs.findbugs.StatelessDetector;
 import edu.umd.cs.findbugs.ba.AnalysisContext;
 import edu.umd.cs.findbugs.ba.ClassContext;
 import edu.umd.cs.findbugs.ba.InnerClassAccess;
-import edu.umd.cs.findbugs.ba.SignatureParser;
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 
 public class InefficientMemberAccess extends BytecodeScanningDetector implements StatelessDetector {
 
@@ -75,7 +75,7 @@ public class InefficientMemberAccess extends BytecodeScanningDetector implements
             if (!parCls.equals(getClassConstantOperand())) {
                 return;
             }
-            if ((argTypes.length == 2) && !argTypes[1].getSignature().equals(new SignatureParser(methodSig).getReturnTypeSignature())) {
+            if ((argTypes.length == 2) && !argTypes[1].getSignature().equals(new GenericSignatureParser(methodSig).getReturnTypeSignature())) {
                 return;
             }
 
@@ -85,12 +85,12 @@ public class InefficientMemberAccess extends BytecodeScanningDetector implements
                 access = AnalysisContext.currentAnalysisContext().getInnerClassAccessMap().getInnerClassAccess(dottedClassConstantOperand,
                         methodName);
                 if (access != null) {
-                    // if the enclosing class of the field differs from the enclosing class of the method, we shouln't report
+                    // if the enclosing class of the field differs from the enclosing class of the method, we shouldn't report
                     // because there is nothing wrong: see bug 1226
                     if (!access.getField().getClassName().equals(dottedClassConstantOperand)) {
                         return;
                     }
-                    // the access method is created to access the synthetic reference to the enclosing class, we shouln't report
+                    // the access method is created to access the synthetic reference to the enclosing class, we shouldn't report
                     // user can't do anything here, see bug 1191
                     if (access.getField().isSynthetic()) {
                         return;

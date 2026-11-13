@@ -23,13 +23,12 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-
 import org.apache.bcel.classfile.Field;
 import org.apache.bcel.classfile.JavaClass;
 import org.apache.bcel.classfile.Method;
 import org.apache.bcel.generic.ObjectType;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.FieldAnnotation;
 import edu.umd.cs.findbugs.MethodAnnotation;
@@ -70,18 +69,6 @@ public class DescriptorFactory {
     }
 
     /**
-     * This method was designed to canonicalize String to improve performance,
-     * but now GC cost is cheaper than calculation cost in application thread
-     * so removing this old optimization makes SpotBugs 16% faster.
-     * @return given string instance
-     * @deprecated this hack is needless for modern JVM, at least Java8
-     */
-    @Deprecated
-    public static String canonicalizeString(@CheckForNull String s) {
-        return s;
-    }
-
-    /**
      * Get the singleton instance of the DescriptorFactory.
      *
      * @return the singleton instance of the DescriptorFactory
@@ -101,11 +88,11 @@ public class DescriptorFactory {
     public void purge(Collection<ClassDescriptor> unusable) {
         for (ClassDescriptor c : unusable) {
             classDescriptorMap.remove(c.getClassName());
-            dottedClassDescriptorMap.remove(c.getClassName().replace('/', '.'));
+            dottedClassDescriptorMap.remove(ClassName.toDottedClassName(c.getClassName()));
         }
     }
 
-    public @Nonnull ClassDescriptor getClassDescriptor(Class<?> actualClass) {
+    public @NonNull ClassDescriptor getClassDescriptor(Class<?> actualClass) {
         return getClassDescriptorForDottedClassName(actualClass.getName());
     }
 
@@ -116,7 +103,7 @@ public class DescriptorFactory {
      *            a class name in VM (slashed) format
      * @return ClassDescriptor for that class
      */
-    public @Nonnull ClassDescriptor getClassDescriptor(@SlashedClassName String className) {
+    public @NonNull ClassDescriptor getClassDescriptor(@SlashedClassName String className) {
         assert className.indexOf('.') == -1;
         ClassDescriptor classDescriptor = classDescriptorMap.get(className);
         if (classDescriptor == null) {
@@ -142,7 +129,7 @@ public class DescriptorFactory {
         assert dottedClassName != null;
         ClassDescriptor classDescriptor = dottedClassDescriptorMap.get(dottedClassName);
         if (classDescriptor == null) {
-            classDescriptor = getClassDescriptor(dottedClassName.replace('.', '/'));
+            classDescriptor = getClassDescriptor(ClassName.toSlashedClassName(dottedClassName));
             dottedClassDescriptorMap.put(dottedClassName, classDescriptor);
         }
         return classDescriptor;
@@ -185,7 +172,6 @@ public class DescriptorFactory {
         int total = 0;
         int keys = 0;
         int values = 0;
-        int bad = 0;
         for (Map.Entry<MethodDescriptor, MethodDescriptor> e : methodDescriptorMap.entrySet()) {
             total++;
             if (e.getKey() instanceof MethodInfo) {
@@ -287,7 +273,7 @@ public class DescriptorFactory {
      * Create a class descriptor from a field signature
      *
      */
-    public static @CheckForNull ClassDescriptor createClassDescriptorFromFieldSignature(String signature) {
+    public static @Nullable ClassDescriptor createClassDescriptorFromFieldSignature(String signature) {
         int start = signature.indexOf('L');
         if (start < 0) {
             return null;
@@ -344,7 +330,7 @@ public class DescriptorFactory {
         return instance().getClassDescriptor(ClassName.toSlashedClassName(aClass.getName()));
     }
 
-    public static @Nonnull ClassDescriptor createClassDescriptor(@SlashedClassName String className) {
+    public static @NonNull ClassDescriptor createClassDescriptor(@SlashedClassName String className) {
         return instance().getClassDescriptor(className);
     }
 
@@ -360,6 +346,6 @@ public class DescriptorFactory {
     }
 
     public static ClassDescriptor createClassDescriptorFromDottedClassName(String dottedClassName) {
-        return createClassDescriptor(dottedClassName.replace('.', '/'));
+        return createClassDescriptor(ClassName.toSlashedClassName(dottedClassName));
     }
 }

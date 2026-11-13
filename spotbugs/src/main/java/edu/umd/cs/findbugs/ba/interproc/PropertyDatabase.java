@@ -21,22 +21,23 @@ package edu.umd.cs.findbugs.ba.interproc;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-import javax.annotation.CheckForNull;
 import javax.annotation.WillClose;
+
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.ba.AnalysisContext;
 import edu.umd.cs.findbugs.classfile.FieldOrMethodDescriptor;
@@ -81,7 +82,7 @@ public abstract class PropertyDatabase<KeyType extends FieldOrMethodDescriptor, 
      *            the key
      * @return the property, or null if no property is set for this key
      */
-    public @CheckForNull ValueType getProperty(KeyType key) {
+    public @Nullable ValueType getProperty(KeyType key) {
         return propertyMap.get(key);
     }
 
@@ -123,7 +124,7 @@ public abstract class PropertyDatabase<KeyType extends FieldOrMethodDescriptor, 
      * @throws PropertyDatabaseFormatException
      */
     public void readFromFile(String fileName) throws IOException, PropertyDatabaseFormatException {
-        read(new FileInputStream(fileName));
+        read(Files.newInputStream(Path.of(fileName)));
     }
 
     /**
@@ -141,7 +142,7 @@ public abstract class PropertyDatabase<KeyType extends FieldOrMethodDescriptor, 
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
-                if ("".equals(line)) {
+                if (line.isEmpty()) {
                     continue;
                 }
                 int bar = line.indexOf('|');
@@ -164,7 +165,7 @@ public abstract class PropertyDatabase<KeyType extends FieldOrMethodDescriptor, 
      * @throws IOException
      */
     public void writeToFile(String fileName) throws IOException {
-        write(new FileOutputStream(fileName));
+        write(Files.newOutputStream(Path.of(fileName)));
     }
 
     // @SuppressWarnings("unchecked")

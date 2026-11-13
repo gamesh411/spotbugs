@@ -5,9 +5,10 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.LineNumberReader;
 
-import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.DesireWarning;
-import edu.umd.cs.findbugs.annotations.NonNull;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Test cases extracted from
@@ -4491,7 +4492,7 @@ public class EclipseNullReferenceTestCases {
     // _test0902_notNull_protection_tag
     static class Report167 {
         static class X {
-            void foo(@CheckForNull Object o) {
+            void foo(@Nullable Object o) {
                 @NonNull
                 Object l = o;
             }
@@ -4545,7 +4546,7 @@ public class EclipseNullReferenceTestCases {
     // _test0950_nullable_tag
     static class ReportAnyway114 {
         static class X {
-            void foo(@CheckForNull Object o) {
+            void foo(@Nullable Object o) {
                 o.toString();
             }
         }
@@ -4555,7 +4556,7 @@ public class EclipseNullReferenceTestCases {
     // _test0951_nullable_tag
     static class ReportAnyway115 {
         static class X {
-            void foo(@CheckForNull Object o) {
+            void foo(@Nullable Object o) {
                 Object l = o;
                 l.toString();
             }
@@ -4567,7 +4568,7 @@ public class EclipseNullReferenceTestCases {
     // static class DoNotReport116 {
     // static class X {
     // void foo(boolean b) {
-    // @CheckForNull Object o;
+    // @Nullable Object o;
     // if (b) {
     // o = new Object();
     // }

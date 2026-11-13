@@ -27,7 +27,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
-import javax.annotation.CheckForNull;
 import javax.annotation.WillClose;
 
 import org.apache.bcel.Const;
@@ -35,6 +34,7 @@ import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.InstructionHandle;
 import org.apache.bcel.generic.ObjectType;
 import org.apache.bcel.generic.Type;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.SystemProperties;
 import edu.umd.cs.findbugs.ba.BasicBlock;
@@ -159,13 +159,13 @@ public class ObligationAnalysis extends ForwardDataflowAnalysis<StateSet> {
     }
 
     @Override
-    public void transfer(BasicBlock basicBlock, @CheckForNull InstructionHandle end, StateSet start, StateSet result)
+    public void transfer(BasicBlock basicBlock, @Nullable InstructionHandle end, StateSet start, StateSet result)
             throws DataflowAnalysisException {
         super.transfer(basicBlock, end, start, result);
         endTransfer(basicBlock, end, result);
     }
 
-    private void endTransfer(BasicBlock basicBlock, @CheckForNull InstructionHandle end, StateSet result) {
+    private void endTransfer(BasicBlock basicBlock, @Nullable InstructionHandle end, StateSet result) {
         // Append this block id to the Paths of all States
         for (Iterator<State> i = result.stateIterator(); i.hasNext();) {
             State state = i.next();
@@ -401,10 +401,9 @@ public class ObligationAnalysis extends ForwardDataflowAnalysis<StateSet> {
             for (Iterator<State> i = inputFact.stateIterator(); i.hasNext();) {
                 State state = i.next();
                 Path path = state.getPath();
-                if (path.getLength() > 0) {
-                    if (path.getBlockIdAt(path.getLength() - 1) != edge.getSource().getLabel()) {
-                        throw new IllegalStateException("on edge " + edge + ": state " + state + " missing source label in path");
-                    }
+                if (path.getLength() > 0
+                        && path.getBlockIdAt(path.getLength() - 1) != edge.getSource().getLabel()) {
+                    throw new IllegalStateException("on edge " + edge + ": state " + state + " missing source label in path");
                 }
             }
         }

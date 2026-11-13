@@ -23,8 +23,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-import javax.annotation.CheckForNull;
-
 import org.apache.bcel.Const;
 import org.apache.bcel.classfile.Attribute;
 import org.apache.bcel.classfile.Code;
@@ -42,6 +40,7 @@ import org.apache.bcel.generic.MethodGen;
 import org.apache.bcel.generic.ObjectType;
 import org.apache.bcel.generic.ReferenceType;
 import org.apache.bcel.generic.Type;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.Analyze;
 import edu.umd.cs.findbugs.SystemProperties;
@@ -63,6 +62,7 @@ import edu.umd.cs.findbugs.ba.RepositoryLookupFailureCallback;
 import edu.umd.cs.findbugs.ba.SignatureConverter;
 import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 import edu.umd.cs.findbugs.ba.generic.GenericUtilities;
+import edu.umd.cs.findbugs.ba.type.ExceptionSet.ThrownExceptionIterator;
 import edu.umd.cs.findbugs.ba.vna.ValueNumber;
 import edu.umd.cs.findbugs.ba.vna.ValueNumberDataflow;
 import edu.umd.cs.findbugs.ba.vna.ValueNumberFrame;
@@ -124,12 +124,7 @@ public class TypeAnalysis extends FrameDataflowAnalysis<Type, TypeFrame> impleme
         }
 
         public ExceptionSet getEdgeExceptionSet(Edge edge) {
-            ExceptionSet edgeExceptionSet = edgeExceptionMap.get(edge);
-            if (edgeExceptionSet == null) {
-                edgeExceptionSet = exceptionSetFactory.createExceptionSet();
-                edgeExceptionMap.put(edge, edgeExceptionSet);
-            }
-            return edgeExceptionSet;
+            return edgeExceptionMap.computeIfAbsent(edge, k -> exceptionSetFactory.createExceptionSet());
         }
     }
 
@@ -407,7 +402,7 @@ public class TypeAnalysis extends FrameDataflowAnalysis<Type, TypeFrame> impleme
     }
 
     @Override
-    public void transfer(BasicBlock basicBlock, @CheckForNull InstructionHandle end, TypeFrame start, TypeFrame result)
+    public void transfer(BasicBlock basicBlock, @Nullable InstructionHandle end, TypeFrame start, TypeFrame result)
             throws DataflowAnalysisException {
         visitor.startBasicBlock();
 
@@ -429,7 +424,7 @@ public class TypeAnalysis extends FrameDataflowAnalysis<Type, TypeFrame> impleme
         }
     }
 
-    private void computeThrownExceptionTypes(BasicBlock basicBlock, @CheckForNull InstructionHandle end, TypeFrame result)
+    private void computeThrownExceptionTypes(BasicBlock basicBlock, @Nullable InstructionHandle end, TypeFrame result)
             throws DataflowAnalysisException {
 
         // Do nothing if we're not computing propagated exceptions
@@ -792,7 +787,7 @@ public class TypeAnalysis extends FrameDataflowAnalysis<Type, TypeFrame> impleme
                 }
 
                 try {
-                    if (Hierarchy.isSubtype(thrownType, catchType)) {
+                    if (handlerBlockCatches(catchType, thrownType)) {
                         // Exception can be thrown along this edge
                         result.add(thrownType, explicit);
 
@@ -822,6 +817,27 @@ public class TypeAnalysis extends FrameDataflowAnalysis<Type, TypeFrame> impleme
         }
 
         return result;
+    }
+
+    /**
+     * @return <code>true</code> if the block catching <code>catchType</code> (which might be a multi-catch block) is catching exceptions of type <code>thrownType</code>
+     */
+    private boolean handlerBlockCatches(ObjectType catchType, ObjectType thrownType) throws ClassNotFoundException {
+        if (catchType instanceof ExceptionObjectType) {
+            ExceptionObjectType exceptionType = (ExceptionObjectType) catchType;
+            ThrownExceptionIterator exceptionTypesIterator = exceptionType.getExceptionSet().iterator();
+
+            while (exceptionTypesIterator.hasNext()) {
+                ObjectType caughtExceptionType = exceptionTypesIterator.next();
+                if (Hierarchy.isSubtype(thrownType, caughtExceptionType)) {
+                    return true;
+                }
+            }
+
+            return false;
+        } else {
+            return Hierarchy.isSubtype(thrownType, catchType);
+        }
     }
 
     /**

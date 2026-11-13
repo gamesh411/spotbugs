@@ -19,13 +19,12 @@
 
 package nullnessAnnotations.relax;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
 import annotations.DetectorUnderTest;
 import edu.umd.cs.findbugs.annotations.ExpectWarning;
 import edu.umd.cs.findbugs.detect.CheckRelaxingNullnessAnnotation;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author nisticoa
@@ -33,79 +32,86 @@ import edu.umd.cs.findbugs.detect.CheckRelaxingNullnessAnnotation;
 @DetectorUnderTest(CheckRelaxingNullnessAnnotation.class)
 public class TestNullnessRelaxation {
     static interface I<T extends Number> {
-        @Nonnull
+        @NonNull
         Object get();
 
-        @Nonnull
+        @NonNull
         Object get2();
 
-        Number set(@CheckForNull Number o);
+        Number set(@Nullable Number o);
 
-        @Nonnull
-        T set2(@CheckForNull T o);
+        @NonNull
+        T set2(@Nullable T o);
 
-        @Nonnull
-        T set3(@CheckForNull T o);
+        @NonNull
+        T set3(@Nullable T o);
+
+        @NonNull
+        T set4(@Nullable T o);
     }
 
     static interface SI2 extends I<Integer> {
         @Override
-		@CheckForNull
+        @Nullable
         @ExpectWarning("NP_METHOD_RETURN_RELAXING_ANNOTATION")
         String get();
 
         @Override
-		@Nullable
+        @Nullable
         @ExpectWarning("NP_METHOD_RETURN_RELAXING_ANNOTATION")
         String get2();
 
         @Override
-		@ExpectWarning("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION")
-        public Integer set(@Nonnull Number o);
+        @ExpectWarning("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION")
+        public Integer set(@NonNull Number o);
 
         @Override
-		@CheckForNull
         @ExpectWarning("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION,NP_METHOD_RETURN_RELAXING_ANNOTATION")
-        public Integer set2(@Nonnull Integer o);
+        public @Nullable Integer set2(@NonNull Integer o);
 
         @Override
-		@Nullable
         @ExpectWarning("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION,NP_METHOD_RETURN_RELAXING_ANNOTATION")
-        public Integer set3(@Nullable Integer o);
+        public @Nullable Integer set3(@javax.annotation.Nullable Integer o);
+
+        @Override
+        @ExpectWarning("NP_METHOD_RETURN_RELAXING_ANNOTATION")
+        public @Nullable Integer set4(@Nullable Integer o);
     }
 
     static class SimpleClazz implements I<Integer> {
         @Override
-		@CheckForNull
         @ExpectWarning("NP_METHOD_RETURN_RELAXING_ANNOTATION")
-        public String get(){
+        public @Nullable String get(){
             return null;
         }
 
         @Override
-		@Nullable
         @ExpectWarning("NP_METHOD_RETURN_RELAXING_ANNOTATION")
-        public String get2(){
+        public @Nullable String get2() {
             return null;
         }
 
         @Override
-		@ExpectWarning("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION")
-        public Integer set(@Nonnull Number o){
+        @ExpectWarning("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION")
+        public Integer set(@NonNull Number o) {
             return null;
         }
 
         @Override
-		@CheckForNull
         @ExpectWarning("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION,NP_METHOD_RETURN_RELAXING_ANNOTATION")
-        public Integer set2(@Nonnull Integer o){
+        public @Nullable Integer set2(@NonNull Integer o) {
             return null;
         }
 
         @Override
-		@Nullable
         @ExpectWarning("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION,NP_METHOD_RETURN_RELAXING_ANNOTATION")
-        public Integer set3(@Nullable Integer o){
+        public @Nullable Integer set3(@javax.annotation.Nullable Integer o) {
+            return null;
+        }
+
+        @Override
+        @ExpectWarning("NP_METHOD_RETURN_RELAXING_ANNOTATION")
+        public @Nullable Integer set4(@Nullable Integer o) {
             return null;
         }
     }
@@ -117,36 +123,38 @@ public class TestNullnessRelaxation {
 
     static class Clazz extends Clazz2 {
         @Override
-		@CheckForNull
         @ExpectWarning("NP_METHOD_RETURN_RELAXING_ANNOTATION")
-        public String get(){
+        public @Nullable String get() {
             return null;
         }
 
         @Override
-		@Nullable
         @ExpectWarning("NP_METHOD_RETURN_RELAXING_ANNOTATION")
-        public String get2(){
+        public @Nullable String get2() {
             return null;
         }
 
         @Override
-		@ExpectWarning("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION")
-        public Integer set(@Nonnull Number o){
+        @ExpectWarning("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION")
+        public Integer set(@NonNull Number o) {
             return null;
         }
 
         @Override
-		@CheckForNull
         @ExpectWarning("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION,NP_METHOD_RETURN_RELAXING_ANNOTATION")
-        public Integer set2(@Nonnull Integer o){
+        public @Nullable Integer set2(@NonNull Integer o) {
             return null;
         }
 
         @Override
-		@Nullable
         @ExpectWarning("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION,NP_METHOD_RETURN_RELAXING_ANNOTATION")
-        public Integer set3(@Nullable Integer o){
+        public @Nullable Integer set3(@javax.annotation.Nullable Integer o) {
+            return null;
+        }
+
+        @Override
+        @ExpectWarning("NP_METHOD_RETURN_RELAXING_ANNOTATION")
+        public @Nullable Integer set4(@Nullable Integer o) {
             return null;
         }
     }

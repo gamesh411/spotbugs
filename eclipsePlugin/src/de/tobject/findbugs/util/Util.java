@@ -20,12 +20,9 @@
 package de.tobject.findbugs.util;
 
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.TreeMap;
-
-import javax.annotation.CheckForNull;
 
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IResource;
@@ -36,6 +33,7 @@ import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.swt.dnd.Clipboard;
 import org.eclipse.swt.dnd.TextTransfer;
 import org.eclipse.swt.widgets.Display;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.util.Archive;
 
@@ -193,8 +191,7 @@ public class Util {
     }
 
     @SuppressWarnings("unchecked")
-    @CheckForNull
-    public static <V> V getAdapter(Class<V> adapter, Object obj) {
+    public static <V> @Nullable V getAdapter(Class<V> adapter, Object obj) {
         if (obj == null) {
             return null;
         }
@@ -213,22 +210,19 @@ public class Util {
      * @param markers
      */
     public static void sortIMarkers(IMarker[] markers) {
-        Arrays.sort(markers, new Comparator<IMarker>() {
-            @Override
-            public int compare(IMarker arg0, IMarker arg1) {
-                IResource resource0 = arg0.getResource();
-                IResource resource1 = arg1.getResource();
-                if (resource0 != null && resource1 != null) {
-                    return resource0.getName().compareTo(resource1.getName());
-                }
-                if (resource0 != null && resource1 == null) {
-                    return 1;
-                }
-                if (resource0 == null && resource1 != null) {
-                    return -1;
-                }
-                return 0;
+        Arrays.sort(markers, (arg0, arg1) -> {
+            IResource resource0 = arg0.getResource();
+            IResource resource1 = arg1.getResource();
+            if (resource0 != null && resource1 != null) {
+                return resource0.getName().compareTo(resource1.getName());
             }
+            if (resource0 != null && resource1 == null) {
+                return 1;
+            }
+            if (resource0 == null && resource1 != null) {
+                return -1;
+            }
+            return 0;
         });
     }
 

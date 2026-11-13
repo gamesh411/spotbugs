@@ -22,7 +22,7 @@ package edu.umd.cs.findbugs.filter;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-import javax.annotation.CheckForNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Matches a String value against a predefined specification.
@@ -36,18 +36,18 @@ import javax.annotation.CheckForNull;
  * java.util.regex.Pattern, with the ~ character omitted. The pattern will be
  * matched against whole value (ie Matcher.match(), not Matcher.find())
  *
- * If matchSpec is a non-null String with any other initial charcter, exact
+ * If matchSpec is a non-null String with any other initial character, exact
  * matching using String.equals(String) will be performed.
  *
  * @author rafal@caltha.pl
  */
 public class NameMatch {
 
-    private @CheckForNull final String spec;
+    private final @Nullable String spec;
 
-    private @CheckForNull String exact;
+    private @Nullable String exact;
 
-    private @CheckForNull Pattern pattern;
+    private @Nullable Pattern pattern;
 
     @Override
     public int hashCode() {

@@ -27,10 +27,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IMarker;
@@ -46,6 +42,8 @@ import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import de.tobject.findbugs.FindbugsPlugin;
 import de.tobject.findbugs.reporter.MarkerUtil;
@@ -227,7 +225,7 @@ public class WorkItem {
         return classNamePattern;
     }
 
-    public @CheckForNull IResource getCorespondingResource() {
+    public @Nullable IResource getCorespondingResource() {
         if (resource != null) {
             return resource;
         }
@@ -246,7 +244,7 @@ public class WorkItem {
         return null;
     }
 
-    public @CheckForNull IJavaElement getCorespondingJavaElement() {
+    public @Nullable IJavaElement getCorespondingJavaElement() {
         if (javaElt != null) {
             return javaElt;
         }
@@ -259,7 +257,7 @@ public class WorkItem {
      *         null. The return value can be absolutely unrelated to the
      *         {@link #getCorespondingResource()}.
      */
-    public @Nonnull IResource getMarkerTarget() {
+    public @NonNull IResource getMarkerTarget() {
         IResource res = getCorespondingResource();
         if (res != null) {
             return res;
@@ -305,8 +303,7 @@ public class WorkItem {
             recursive = true;
         }
         IMarker[] markers = MarkerUtil.getMarkers(markerTarget, recursive ? IResource.DEPTH_INFINITE : IResource.DEPTH_ONE);
-        Set<IMarker> forJavaElement = MarkerUtil.findMarkerForJavaElement(javaElt, markers, recursive);
-        return forJavaElement;
+        return MarkerUtil.findMarkerForJavaElement(javaElt, markers, recursive);
     }
 
     /**
@@ -346,7 +343,7 @@ public class WorkItem {
      *         java element (method, inner class etc), results are undefined
      *         yet.
      */
-    public @CheckForNull IPath getPath() {
+    public @Nullable IPath getPath() {
         IResource corespondingResource = getCorespondingResource();
         if (corespondingResource != null) {
             return corespondingResource.getLocation();
@@ -379,6 +376,13 @@ public class WorkItem {
             return false;
         }
         return Archive.isArchiveFileName(file.getName());
+    }
+
+    /**
+     * @return true if this work item corresponds to a project
+     */
+    public boolean isProject() {
+        return resource instanceof IProject || javaElt instanceof IJavaProject;
     }
 
     @Override

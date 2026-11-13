@@ -25,8 +25,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import javax.annotation.Nonnull;
-
 import org.apache.bcel.Const;
 import org.apache.bcel.classfile.Constant;
 import org.apache.bcel.classfile.ConstantClass;
@@ -39,6 +37,7 @@ import org.apache.bcel.generic.InstructionHandle;
 import org.apache.bcel.generic.InvokeInstruction;
 import org.apache.bcel.generic.ObjectType;
 import org.apache.bcel.generic.Type;
+import org.jspecify.annotations.NonNull;
 
 import edu.umd.cs.findbugs.BugInstance;
 import edu.umd.cs.findbugs.BugReporter;
@@ -67,6 +66,7 @@ import edu.umd.cs.findbugs.ba.obl.StateSet;
 import edu.umd.cs.findbugs.ba.type.TypeDataflow;
 import edu.umd.cs.findbugs.ba.type.TypeFrame;
 import edu.umd.cs.findbugs.bcel.CFGDetector;
+import edu.umd.cs.findbugs.bytecode.MemberUtils;
 import edu.umd.cs.findbugs.classfile.CheckedAnalysisException;
 import edu.umd.cs.findbugs.classfile.ClassDescriptor;
 import edu.umd.cs.findbugs.classfile.DescriptorFactory;
@@ -164,9 +164,10 @@ public class FindUnsatisfiedObligation extends CFGDetector {
      * along paths where an obligation appears to be leaked.
      */
     private static class PossibleObligationTransfer {
-        Obligation consumed, produced;
+        Obligation consumed;
+        Obligation produced;
 
-        public PossibleObligationTransfer(@Nonnull Obligation consumed, @Nonnull Obligation produced) {
+        public PossibleObligationTransfer(@NonNull Obligation consumed, @NonNull Obligation produced) {
             this.consumed = consumed;
             this.produced = produced;
         }
@@ -314,8 +315,7 @@ public class FindUnsatisfiedObligation extends CFGDetector {
         private void reportWarning(Obligation obligation, State state, StateSet factAtExit) {
             String className = obligation.getClassName();
 
-            if (methodDescriptor.isStatic() && "main".equals(methodDescriptor.getName())
-                    && "([Ljava/lang/String;)V".equals(methodDescriptor.getSignature())
+            if (MemberUtils.isMainMethod(xmethod)
                     && (className.contains("InputStream") || className.contains("Reader") || factAtExit.isOnExceptionPath())) {
                 // Don't report unclosed input streams and readers in main()
                 // methods
@@ -401,13 +401,9 @@ public class FindUnsatisfiedObligation extends CFGDetector {
             @Override
             public void visitBasicBlock(BasicBlock basicBlock) {
                 curBlock = basicBlock;
-
-                if (COMPUTE_TRANSFERS && basicBlock == cfg.getExit()) {
-                    // We're at the CFG exit.
-
-                    if (adjustedLeakCount == 1) {
-                        applyPossibleObligationTransfers();
-                    }
+                // We're at the CFG exit.
+                if (COMPUTE_TRANSFERS && basicBlock == cfg.getExit() && adjustedLeakCount == 1) {
+                    applyPossibleObligationTransfers();
                 }
             }
 
@@ -647,7 +643,7 @@ public class FindUnsatisfiedObligation extends CFGDetector {
             // If we're tracking, e.g., InputStream obligations,
             // and we see a FileInputStream reference being assigned
             // to a field (or returned from a method),
-            // then the false-positive supressions heuristic should apply.
+            // then the false-positive suppressions heuristic should apply.
             //
 
             return subtypes2.isSubtype(type, obligationType);

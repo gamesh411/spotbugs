@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-import javax.annotation.CheckForNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.ba.Location;
 import edu.umd.cs.findbugs.ba.vna.ValueNumber;
@@ -158,7 +158,7 @@ public class UnconditionalValueDerefSet {
      * @param skipMe
      *            TODO
      */
-    public void mergeWith(UnconditionalValueDerefSet fact, @CheckForNull ValueNumber skipMe, ValueNumberFactory valueNumberFactory) {
+    public void mergeWith(UnconditionalValueDerefSet fact, @Nullable ValueNumber skipMe, ValueNumberFactory valueNumberFactory) {
         if (UnconditionalValueDerefAnalysis.DEBUG) {
             System.out.println("merge update of # " + System.identityHashCode(this) + " from " + System.identityHashCode(fact));
             System.out.println("update " + this);
@@ -285,8 +285,7 @@ public class UnconditionalValueDerefSet {
      * @return the set of dereference Locations
      */
     public Set<Location> getDerefLocationSet(ValueNumber vn) {
-        Set<Location> derefLocationSet = derefLocationSetMap.computeIfAbsent(vn, k -> new HashSet<>());
-        return derefLocationSet;
+        return derefLocationSetMap.computeIfAbsent(vn, k -> new HashSet<>());
     }
 
     /**
@@ -381,7 +380,7 @@ public class UnconditionalValueDerefSet {
                 } else {
                     buf.append(',');
                 }
-                buf.append("(" + location.getBasicBlock().getLabel() + ":" + location.getHandle().getPosition() + ")");
+                buf.append("(").append(location.getBasicBlock().getLabel()).append(":").append(location.getHandle().getPosition()).append(")");
             }
             buf.append('}');
         }
@@ -402,7 +401,7 @@ public class UnconditionalValueDerefSet {
      * @param location
      * @param vnaFrame
      */
-    public void cleanDerefSet(@CheckForNull Location location, ValueNumberFrame vnaFrame) {
+    public void cleanDerefSet(@Nullable Location location, ValueNumberFrame vnaFrame) {
 
         Set<ValueNumber> valueNumbers = new HashSet<>(vnaFrame.allSlots());
 

@@ -68,7 +68,8 @@ public class StandardTypeMerger implements TypeMerger, ExtendedTypes {
         if (b == null) {
             return a;
         }
-        byte aType = a.getType(), bType = b.getType();
+        byte aType = a.getType();
+        byte bType = b.getType();
 
         if (aType == T_TOP) {
             return b;
@@ -199,7 +200,7 @@ public class StandardTypeMerger implements TypeMerger, ExtendedTypes {
                         if (aP.size() != bP.size()) {
                             break;
                         }
-                        ArrayList<ReferenceType> result = new ArrayList<>(aP.size());
+                        List<ReferenceType> result = new ArrayList<>(aP.size());
                         for (int i = 0; i < aP.size(); i++) {
                             result.add(mergeReferenceTypes(aP.get(i), bP.get(i)));
                         }

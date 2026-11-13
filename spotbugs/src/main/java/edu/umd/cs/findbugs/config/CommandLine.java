@@ -20,11 +20,13 @@
 package edu.umd.cs.findbugs.config;
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -32,12 +34,15 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import edu.umd.cs.findbugs.DetectorFactoryCollection;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import edu.umd.cs.findbugs.ba.AnalysisContext;
 import edu.umd.cs.findbugs.charsets.UTF8;
+
+import org.jspecify.annotations.NonNull;
 
 /**
  * Helper class for parsing command line arguments.
@@ -62,7 +67,7 @@ public abstract class CommandLine {
 
     int maxWidth;
 
-    public CommandLine() {
+    protected CommandLine() {
         this.unlistedOptions = new HashSet<>();
         this.optionList = new LinkedList<>();
         this.optionGroups = new HashMap<>();
@@ -178,8 +183,8 @@ public abstract class CommandLine {
         // -adjustPriority
         // must always come after -pluginList).
         int lastOptionIndex = parse(argv, true);
-        ArrayList<String> resultList = new ArrayList<>();
-        ArrayList<String> expandedOptionsList = getAnalysisOptionProperties(ignoreComments, ignoreBlankLines);
+        List<String> resultList = new ArrayList<>();
+        List<String> expandedOptionsList = getAnalysisOptionProperties(ignoreComments, ignoreBlankLines);
         for (int i = 0; i < lastOptionIndex; i++) {
             String arg = argv[i];
             if (!arg.startsWith("@")) {
@@ -187,7 +192,7 @@ public abstract class CommandLine {
                 continue;
             }
 
-            try (FileInputStream stream = new FileInputStream(arg.substring(1));
+            try (InputStream stream = Files.newInputStream(Path.of(arg.substring(1)));
                     BufferedReader reader = UTF8.bufferedReader(stream)) {
                 addCommandLineOptions(expandedOptionsList, reader, ignoreComments, ignoreBlankLines);
             }
@@ -200,8 +205,8 @@ public abstract class CommandLine {
         return resultList.toArray(new String[0]);
     }
 
-    public static ArrayList<String> getAnalysisOptionProperties(boolean ignoreComments, boolean ignoreBlankLines) {
-        ArrayList<String> resultList = new ArrayList<>();
+    public static List<String> getAnalysisOptionProperties(boolean ignoreComments, boolean ignoreBlankLines) {
+        List<String> resultList = new ArrayList<>();
         URL u = DetectorFactoryCollection.getCoreResource("analysisOptions.properties");
         if (u != null) {
             try (BufferedReader reader = UTF8.bufferedReader(u.openStream())) {
@@ -213,7 +218,7 @@ public abstract class CommandLine {
         return resultList;
     }
 
-    private static void addCommandLineOptions(ArrayList<String> resultList, BufferedReader reader, boolean ignoreComments,
+    private static void addCommandLineOptions(List<String> resultList, BufferedReader reader, boolean ignoreComments,
             boolean ignoreBlankLines) throws IOException {
         String line;
         while ((line = reader.readLine()) != null) {
@@ -223,7 +228,7 @@ public abstract class CommandLine {
                 continue;
             }
 
-            if (ignoreBlankLines && "".equals(line)) {
+            if (ignoreBlankLines && line.isEmpty()) {
                 continue;
             }
             if (line.length() >= 2 && line.charAt(0) == '"' && line.charAt(line.length() - 1) == '"') {
@@ -256,7 +261,7 @@ public abstract class CommandLine {
      * @return number of arguments parsed
      */
     @SuppressFBWarnings("DM_EXIT")
-    public int parse(String argv[], int minArgs, int maxArgs, String usage) {
+    public int parse(String[] argv, int minArgs, int maxArgs, String usage) {
         try {
             int count = parse(argv);
             int remaining = argv.length - count;
@@ -270,9 +275,7 @@ public abstract class CommandLine {
             return count;
         } catch (HelpRequestedException e) {
             // fall through
-        } catch (RuntimeException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
+        } catch (RuntimeException | IOException e) {
             e.printStackTrace();
         }
         System.out.println(usage);
@@ -294,11 +297,11 @@ public abstract class CommandLine {
      *         entire command line was parsed
      * @throws HelpRequestedException
      */
-    public int parse(String argv[]) throws IOException, HelpRequestedException {
+    public int parse(String[] argv) throws IOException, HelpRequestedException {
         return parse(argv, false);
     }
 
-    private int parse(String argv[], boolean dryRun) throws IOException, HelpRequestedException {
+    private int parse(String[] argv, boolean dryRun) throws IOException, HelpRequestedException {
         int arg = 0;
 
         while (arg < argv.length) {
@@ -313,12 +316,9 @@ public abstract class CommandLine {
                 ++arg;
                 continue;
             }
-            String optionExtraPart = "";
-            int colon = option.indexOf(':');
-            if (colon >= 0) {
-                optionExtraPart = option.substring(colon + 1);
-                option = option.substring(0, colon);
-            }
+            Option split = splitOption(option);
+            option = split.option;
+            String optionExtraPart = split.extraPart;
 
             if (optionDescriptionMap.get(option) == null) {
                 throw new IllegalArgumentException("Unknown option: " + option);
@@ -343,6 +343,38 @@ public abstract class CommandLine {
         }
 
         return arg;
+    }
+
+    /* visible for testing */
+    static @NonNull Option splitOption(String option) {
+        String optionExtraPart = "";
+        int colon = option.indexOf(':');
+        if (colon >= 0) {
+            optionExtraPart = option.substring(colon + 1);
+            option = option.substring(0, colon);
+        }
+        int eq = option.indexOf('=');
+        if (eq >= 0) {
+            if (optionExtraPart.isEmpty()) {
+                optionExtraPart = option.substring(eq); // starts with '='
+            } else {
+                optionExtraPart = option.substring(eq) + ":" + optionExtraPart;
+            }
+            option = option.substring(0, eq);
+        }
+        return new Option(option, optionExtraPart);
+    }
+
+    static final class Option {
+
+        final @NonNull String option;
+
+        final @NonNull String extraPart;
+
+        Option(@NonNull String option, @NonNull String extraPart) {
+            this.option = Objects.requireNonNull(option);
+            this.extraPart = Objects.requireNonNull(extraPart);
+        }
     }
 
     /**

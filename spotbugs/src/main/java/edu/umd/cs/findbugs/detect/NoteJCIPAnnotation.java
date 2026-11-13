@@ -37,6 +37,7 @@ import edu.umd.cs.findbugs.visitclass.AnnotationVisitor;
 
 public class NoteJCIPAnnotation extends AnnotationVisitor implements Detector, NonReportingDetector {
 
+    // These annotations are abandoned and never part of jakarta commons annotations.
     private static final String NET_JCIP_ANNOTATIONS = "net.jcip.annotations.";
     private static final String JSR305_CONCURRENT_ANNOTATIONS = "javax.annotation.concurrent.";
 

@@ -19,13 +19,13 @@
 
 package edu.umd.cs.findbugs.classfile.engine;
 
-import java.util.BitSet;
 import java.util.HashSet;
 import java.util.TreeSet;
 
-import javax.annotation.CheckForNull;
 
 import org.apache.bcel.Const;
+import org.jspecify.annotations.Nullable;
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -37,7 +37,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.TypePath;
 import org.objectweb.asm.TypeReference;
 
-import edu.umd.cs.findbugs.ba.SignatureParser;
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 import edu.umd.cs.findbugs.classfile.ClassDescriptor;
 import edu.umd.cs.findbugs.classfile.DescriptorFactory;
 import edu.umd.cs.findbugs.classfile.ICodeBaseEntry;
@@ -59,16 +59,6 @@ public class ClassParserUsingASM implements ClassParserInterface {
 
     // static final boolean NO_SHIFT_INNER_CLASS_CTOR =
     // SystemProperties.getBoolean("classparser.noshift");
-
-    private static final BitSet RETURN_OPCODE_SET = new BitSet();
-    static {
-        RETURN_OPCODE_SET.set(Opcodes.ARETURN);
-        RETURN_OPCODE_SET.set(Opcodes.IRETURN);
-        RETURN_OPCODE_SET.set(Opcodes.LRETURN);
-        RETURN_OPCODE_SET.set(Opcodes.DRETURN);
-        RETURN_OPCODE_SET.set(Opcodes.FRETURN);
-        RETURN_OPCODE_SET.set(Opcodes.RETURN);
-    }
 
     private final ClassReader classReader;
 
@@ -149,7 +139,11 @@ public class ClassParserUsingASM implements ClassParserInterface {
 
         boolean isAccessMethod;
 
-        String accessOwner, accessName, accessDesc;
+        String accessOwner;
+
+        String accessName;
+
+        String accessDesc;
 
         boolean accessForField;
 
@@ -304,7 +298,7 @@ public class ClassParserUsingASM implements ClassParserInterface {
         }
 
         @Override
-        public org.objectweb.asm.AnnotationVisitor visitAnnotation(final String desc, boolean visible) {
+        public AnnotationVisitor visitAnnotation(final String desc, boolean visible) {
             AnnotationValue value = new AnnotationValue(desc);
             mBuilder.addAnnotation(desc, value);
             return value.getAnnotationVisitor();
@@ -429,7 +423,7 @@ public class ClassParserUsingASM implements ClassParserInterface {
                     mBuilder.setAccessMethodForMethod(accessOwner, accessName, accessDesc, accessIsStatic);
                 } else if (accessForField && fieldInstructionCount == 1) {
                     boolean isSetter = methodDesc.endsWith(")V");
-                    int numArg = new SignatureParser(methodDesc).getNumParameters();
+                    int numArg = new GenericSignatureParser(methodDesc).getNumParameters();
                     int expected = 0;
                     if (!accessIsStatic) {
                         expected++;
@@ -492,35 +486,47 @@ public class ClassParserUsingASM implements ClassParserInterface {
         }
 
         @Override
-        public org.objectweb.asm.AnnotationVisitor visitParameterAnnotation(int parameter, String desc,
+        public AnnotationVisitor visitParameterAnnotation(int parameter, String desc,
                 boolean visible) {
             AnnotationValue value = new AnnotationValue(desc);
-            int shift = 0;
-            if (parameterCount >= 0) {
-                // if we have synthetic parameter, shift `parameter` value
-                shift = new SignatureParser(methodDesc).getNumParameters() - parameterCount;
-            }
-            mBuilder.addParameterAnnotation(parameter + shift, desc, value);
+            mBuilder.addParameterAnnotation(getParameterIndex(parameter), desc, value);
             return value.getAnnotationVisitor();
         }
 
         @Override
-        public org.objectweb.asm.AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath,
+        public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath,
                 String desc, boolean visible) {
             TypeReference typeRefObject = new TypeReference(typeRef);
-            if (typeRefObject.getSort() == TypeReference.METHOD_FORMAL_PARAMETER) {
+
+            if (typeRefObject.getSort() == TypeReference.METHOD_FORMAL_PARAMETER && typePath == null) {
                 // treat as parameter annotation
                 AnnotationValue value = new AnnotationValue(desc);
                 mBuilder.addParameterAnnotation(typeRefObject.getFormalParameterIndex(), desc, value);
                 return value.getAnnotationVisitor();
             }
-            if (typeRefObject.getSort() == TypeReference.METHOD_RETURN) {
+            if (typeRefObject.getSort() == TypeReference.METHOD_RETURN && typePath == null) {
                 // treat as method annotation
                 AnnotationValue value = new AnnotationValue(desc);
                 mBuilder.addAnnotation(desc, value);
                 return value.getAnnotationVisitor();
             }
             return null;
+        }
+
+        /**
+         * Get the parameter index adjusted for synthetic parameters.
+         *
+         * @param parameter the parameter index
+         * @return the adjusted parameter index
+         */
+        private int getParameterIndex(int parameter) {
+            if (parameterCount < 0) {
+                return parameter;
+            }
+
+            // If we have synthetic parameters, shift the parameter index.
+            int shift = new GenericSignatureParser(methodDesc).getNumParameters() - parameterCount;
+            return parameter + shift;
         }
     }
 
@@ -535,7 +541,7 @@ public class ClassParserUsingASM implements ClassParserInterface {
         OTHER, LOADED_THIS, LOADED_THIS_AND_PARAMETER;
     }
 
-    public ClassParserUsingASM(ClassReader classReader, @CheckForNull ClassDescriptor expectedClassDescriptor,
+    public ClassParserUsingASM(ClassReader classReader, @Nullable ClassDescriptor expectedClassDescriptor,
             ICodeBaseEntry codeBaseEntry) {
         this.classReader = classReader;
         //        this.expectedClassDescriptor = expectedClassDescriptor;
@@ -569,7 +575,7 @@ public class ClassParserUsingASM implements ClassParserInterface {
             }
 
             @Override
-            public org.objectweb.asm.AnnotationVisitor visitAnnotation(String desc, boolean isVisible) {
+            public AnnotationVisitor visitAnnotation(String desc, boolean isVisible) {
                 if (cBuilder instanceof ClassInfo.Builder) {
                     AnnotationValue value = new AnnotationValue(desc);
                     ((ClassInfo.Builder) cBuilder).addAnnotation(desc, value);
@@ -606,16 +612,29 @@ public class ClassParserUsingASM implements ClassParserInterface {
                     return new AbstractFieldAnnotationVisitor() {
 
                         @Override
-                        public org.objectweb.asm.AnnotationVisitor visitAnnotation(final String desc, boolean visible) {
+                        public AnnotationVisitor visitAnnotation(final String desc, boolean visible) {
                             AnnotationValue value = new AnnotationValue(desc);
                             fBuilder.addAnnotation(desc, value);
                             return value.getAnnotationVisitor();
                         }
 
                         @Override
+                        public AnnotationVisitor visitTypeAnnotation(
+                                final int typeRef, final TypePath typePath, final String desc, boolean visible) {
+                            TypeReference typeRefObject = new TypeReference(typeRef);
+
+                            if (typeRefObject.getSort() == TypeReference.FIELD && typePath == null) {
+                                AnnotationValue value = new AnnotationValue(desc);
+                                fBuilder.addAnnotation(desc, value);
+                                return value.getAnnotationVisitor();
+                            }
+
+                            return null;
+                        }
+
+                        @Override
                         public void visitEnd() {
                             cBuilder2.addFieldDescriptor(fBuilder.build());
-
                         }
 
                     };
@@ -626,15 +645,11 @@ public class ClassParserUsingASM implements ClassParserInterface {
 
             @Override
             public void visitInnerClass(String name, String outerName, String innerName, int access) {
-                if (name.equals(slashedClassName) && outerName != null) {
-                    if (cBuilder instanceof ClassInfo.Builder) {
-                        ClassDescriptor outerClassDescriptor = DescriptorFactory.createClassDescriptor(outerName);
-                        ((ClassInfo.Builder) cBuilder).setImmediateEnclosingClass(outerClassDescriptor);
-                        ((ClassInfo.Builder) cBuilder).setAccessFlags(access);
-                    }
-
+                if (name.equals(slashedClassName) && outerName != null && cBuilder instanceof ClassInfo.Builder) {
+                    ClassDescriptor outerClassDescriptor = DescriptorFactory.createClassDescriptor(outerName);
+                    ((ClassInfo.Builder) cBuilder).setImmediateEnclosingClass(outerClassDescriptor);
+                    ((ClassInfo.Builder) cBuilder).setAccessFlags(access);
                 }
-
             }
 
             @Override
@@ -656,7 +671,15 @@ public class ClassParserUsingASM implements ClassParserInterface {
 
             @Override
             public void visitOuterClass(String owner, String name, String desc) {
-
+                // ASM fires this for the EnclosingMethod attribute, which per JVMS 4.7.7 is present
+                // only for local and anonymous classes. For those the InnerClasses attribute does not
+                // carry the enclosing class (outer_class_info_index is unset), so visitInnerClass above
+                // never sets the immediate enclosing class. Populate it here so all callers of
+                // XClass.getImmediateEnclosingClass() resolve local/anonymous classes correctly.
+                if (owner != null && cBuilder instanceof ClassInfo.Builder) {
+                    ClassDescriptor outerClassDescriptor = DescriptorFactory.createClassDescriptor(owner);
+                    ((ClassInfo.Builder) cBuilder).setImmediateEnclosingClass(outerClassDescriptor);
+                }
             }
 
             @Override
@@ -686,6 +709,7 @@ public class ClassParserUsingASM implements ClassParserInterface {
             case Const.CONSTANT_Integer:
             case Const.CONSTANT_Float:
             case Const.CONSTANT_NameAndType:
+            case Const.CONSTANT_Dynamic:
             case Const.CONSTANT_InvokeDynamic:
                 size = 5;
                 break;
@@ -710,14 +734,12 @@ public class ClassParserUsingASM implements ClassParserInterface {
                 break;
             case Const.CONSTANT_String:
             case Const.CONSTANT_MethodType:
+            case Const.CONSTANT_Module:
+            case Const.CONSTANT_Package:
                 size = 3;
                 break;
             case Const.CONSTANT_MethodHandle:
                 size = 4;
-                break;
-            case Const.CONSTANT_Module:
-            case Const.CONSTANT_Package:
-                size = 3;
                 break;
             default:
                 throw new IllegalStateException("Unexpected tag of " + tag + " at offset " + offset + " while parsing "

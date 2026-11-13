@@ -27,10 +27,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nullable;
-
 import org.apache.bcel.generic.Type;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.OpcodeStack;
 import edu.umd.cs.findbugs.OpcodeStack.Item;
@@ -93,6 +91,7 @@ public class FieldSummary {
                 }
             }
         } catch (CheckedAnalysisException e) {
+            AnalysisContext.currentAnalysisContext().getLookupFailureCallback().reportMissingClass(c, e);
             return false;
         }
 
@@ -198,9 +197,6 @@ public class FieldSummary {
      *            The complete to set.
      */
     public void setComplete(boolean complete) {
-        int fields = 0;
-        int removed = 0;
-        int retained = 0;
         this.complete = complete;
         if (isComplete()) {
             for (Iterator<Map.Entry<XField, OpcodeStack.Item>> i = summary.entrySet().iterator(); i.hasNext();) {
@@ -208,18 +204,13 @@ public class FieldSummary {
                 XField f = entry.getKey();
                 if (AnalysisContext.currentXFactory().isReflectiveClass(f.getClassDescriptor())) {
                     i.remove();
-                    removed++;
                     continue;
                 }
                 OpcodeStack.Item defaultItem = new OpcodeStack.Item(f.getSignature());
-                fields++;
                 Item value = entry.getValue();
                 value.makeCrossMethod();
                 if (defaultItem.equals(value)) {
                     i.remove();
-                    removed++;
-                } else {
-                    retained++;
                 }
             }
         }
@@ -243,7 +234,7 @@ public class FieldSummary {
 
     }
 
-    public @CheckForNull XMethod getSuperCall(XMethod from) {
+    public @Nullable XMethod getSuperCall(XMethod from) {
         return nonVoidSuperConstructorsCalled.get(from);
 
     }

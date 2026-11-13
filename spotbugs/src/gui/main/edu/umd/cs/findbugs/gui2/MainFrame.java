@@ -23,13 +23,12 @@ import java.awt.Component;
 import java.awt.Cursor;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
 import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JEditorPane;
@@ -63,6 +62,9 @@ import edu.umd.cs.findbugs.log.Logger;
 import edu.umd.cs.findbugs.sourceViewer.NavigableTextPane;
 import edu.umd.cs.findbugs.util.Multiset;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
 @SuppressWarnings("serial")
 /*
  * This is where it all happens... seriously... all of it... All the menus are
@@ -81,7 +83,7 @@ public class MainFrame extends FBFrame implements LogSync {
 
     public static final String TITLE_START_TXT = "SpotBugs";
 
-    private final static String WINDOW_MODIFIED = "windowModified";
+    private static final String WINDOW_MODIFIED = "windowModified";
 
     public static final boolean USE_WINDOWS_LAF = false;
 
@@ -101,8 +103,7 @@ public class MainFrame extends FBFrame implements LogSync {
 
     private final Logger logger = new ConsoleLogger(this);
 
-    @CheckForNull
-    private File saveFile = null;
+    private @Nullable File saveFile = null;
 
     private final ExecutorService backgroundExecutor = Executors.newCachedThreadPool();
 
@@ -235,7 +236,7 @@ public class MainFrame extends FBFrame implements LogSync {
         return mainFrameTree.getBugTreeModel();
     }
 
-    public synchronized @Nonnull Project getProject() {
+    public synchronized @NonNull Project getProject() {
         if (curProject == null) {
             curProject = new Project();
         }
@@ -430,7 +431,7 @@ public class MainFrame extends FBFrame implements LogSync {
     }
 
     @SwingThread
-    private void setProjectAndBugCollection(@CheckForNull Project project, @CheckForNull BugCollection bugCollection) {
+    private void setProjectAndBugCollection(@Nullable Project project, @Nullable BugCollection bugCollection) {
         if (GUI2_DEBUG) {
             if (bugCollection == null) {
                 System.out.println("Setting bug collection to null");
@@ -611,7 +612,7 @@ public class MainFrame extends FBFrame implements LogSync {
      * Sets the title of the source tabs for either docking or non-docking
      * versions.
      */
-    void setSourceTab(String title, @CheckForNull BugInstance bug) {
+    void setSourceTab(String title, @Nullable BugInstance bug) {
         mainFrameComponentFactory.setSourceTab(title, bug);
     }
 
@@ -642,7 +643,7 @@ public class MainFrame extends FBFrame implements LogSync {
     public void updateTitle() {
         Project project = getProject();
         String name = project.getProjectName();
-        if ((name == null || "".equals(name.trim())) && saveFile != null) {
+        if ((name == null || name.trim().isEmpty()) && saveFile != null) {
             name = saveFile.getAbsolutePath();
         }
         if (name == null) {
@@ -678,11 +679,11 @@ public class MainFrame extends FBFrame implements LogSync {
                 total++;
             }
         }
-        if (projects.size() == 0) {
+        if (projects.isEmpty()) {
             JOptionPane.showMessageDialog(this, "No issues in current view");
             return;
         }
-        ArrayList<ProjectSelector> selectors = new ArrayList<>(projects.size() + 1);
+        List<ProjectSelector> selectors = new ArrayList<>(projects.size() + 1);
         ProjectSelector everything = new ProjectSelector("all projects", "", total);
         selectors.add(everything);
         for (String projectName : projects) {

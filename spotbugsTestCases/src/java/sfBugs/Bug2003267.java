@@ -1,7 +1,7 @@
 package sfBugs;
 
-import edu.umd.cs.findbugs.annotations.NonNull;
-import edu.umd.cs.findbugs.annotations.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 public class Bug2003267 {
 
@@ -17,7 +17,7 @@ public class Bug2003267 {
             target = new Works();
         }
 
-        target.bar(param); // < reports a "possible null pointer derefence" for
+        target.bar(param); // < reports a "possible null pointer dereference" for
         // < target (NP_NULL_ON_SOME_PATH): Correctly detected
     }
 

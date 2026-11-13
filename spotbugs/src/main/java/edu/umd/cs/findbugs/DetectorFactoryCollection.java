@@ -20,10 +20,11 @@
 package edu.umd.cs.findbugs;
 
 import java.io.File;
-import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -37,9 +38,10 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
 import javax.swing.JOptionPane;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.util.ClassPathUtil;
 
@@ -54,8 +56,12 @@ import edu.umd.cs.findbugs.util.ClassPathUtil;
 public class DetectorFactoryCollection {
 
     private static final Logger LOGGER = Logger.getLogger(DetectorFactoryCollection.class.getName());
+
+    private static final Pattern SPOTBUGS_JAR_PATTERN = Pattern.compile("spotbugs\\.jar$");
+
+    private static final Pattern EDU_UMD_CLASSFILE_PATTERN = Pattern.compile("(.*)/.*?/edu/umd.*");
+
     private static final boolean DEBUG_JAWS = SystemProperties.getBoolean("findbugs.jaws.debug");
-    //    private static final boolean DEBUG = Boolean.getBoolean("dfc.debug");
 
     private static DetectorFactoryCollection theInstance;
     private static final Object lock = new Object();
@@ -73,11 +79,16 @@ public class DetectorFactoryCollection {
     final Map<String, Plugin> globalOptionsSetter = new HashMap<>();
 
     public DetectorFactoryCollection() {
-        this(true, false, Plugin.getAllPlugins(), new ArrayList<Plugin>());
+        this(true, false, initializePluginsForDefaultConstructor(), new ArrayList<>());
+    }
+
+    private static Collection<Plugin> initializePluginsForDefaultConstructor() {
+        PluginLoader.getCorePluginLoader();
+        return Plugin.getAllPlugins();
     }
 
     public DetectorFactoryCollection(Plugin onlyPlugin) {
-        this(false, true, Collections.singleton(onlyPlugin), new ArrayList<Plugin>());
+        this(false, true, Collections.singleton(onlyPlugin), new ArrayList<>());
     }
 
     protected DetectorFactoryCollection(Collection<Plugin> enabled) {
@@ -85,8 +96,8 @@ public class DetectorFactoryCollection {
     }
 
     private DetectorFactoryCollection(boolean loadCore, boolean forceLoad,
-            @Nonnull Collection<Plugin> pluginsToLoad,
-            @Nonnull Collection<Plugin> enabledPlugins) {
+            @NonNull Collection<Plugin> pluginsToLoad,
+            @NonNull Collection<Plugin> enabledPlugins) {
         if (loadCore) {
             loadCorePlugin();
         }
@@ -116,7 +127,7 @@ public class DetectorFactoryCollection {
      * @param instance
      *            use null to clear the instance
      */
-    public static void resetInstance(@CheckForNull DetectorFactoryCollection instance) {
+    public static void resetInstance(@Nullable DetectorFactoryCollection instance) {
         synchronized (lock) {
             theInstance = instance;
         }
@@ -175,8 +186,7 @@ public class DetectorFactoryCollection {
         return pluginByIdMap.values();
     }
 
-    @Nonnull
-    public Plugin getCorePlugin() {
+    public @NonNull Plugin getCorePlugin() {
         if (corePlugin == null) {
             throw new IllegalStateException("No core plugin");
         }
@@ -212,7 +222,7 @@ public class DetectorFactoryCollection {
     }
 
     public boolean isDisabledByDefault(String bugPatternOrCode) {
-        @CheckForNull
+        @Nullable
         BugPattern pattern = lookupBugPattern(bugPatternOrCode);
         if (pattern != null) {
             for (DetectorFactory fac : factoryList) {
@@ -222,7 +232,7 @@ public class DetectorFactoryCollection {
             }
             return true;
         }
-        @CheckForNull
+        @Nullable
         BugCode code = lookupBugCode(bugPatternOrCode);
         if (code != null) {
             for (DetectorFactory fac : factoryList) {
@@ -300,35 +310,29 @@ public class DetectorFactoryCollection {
      * @return inferred ${spotbugs.home}, or null if we can't figure it out
      */
     private static String inferSpotBugsHome() {
-        Pattern[] findbugsJarNames = { Pattern.compile("spotbugs\\.jar$"), };
-
-        for (Pattern jarNamePattern : findbugsJarNames) {
-            String findbugsJarCodeBase = ClassPathUtil.findCodeBaseInClassPath(jarNamePattern,
-                    SystemProperties.getProperty("java.class.path"));
-            if (findbugsJarCodeBase != null) {
-                File findbugsJar = new File(findbugsJarCodeBase);
-                File libDir = findbugsJar.getParentFile();
-                if (libDir != null && "lib".equals(libDir.getName())) {
-                    String fbHome = libDir.getParent();
-                    FindBugs.setHome(fbHome);
-                    return fbHome;
-                }
+        String findbugsJarCodeBase = ClassPathUtil.findCodeBaseInClassPath(SPOTBUGS_JAR_PATTERN,
+                SystemProperties.getProperty("java.class.path"));
+        if (findbugsJarCodeBase != null) {
+            File findbugsJar = new File(findbugsJarCodeBase);
+            File libDir = findbugsJar.getParentFile();
+            if (libDir != null && "lib".equals(libDir.getName())) {
+                String fbHome = libDir.getParent();
+                FindBugs.setHome(fbHome);
+                return fbHome;
             }
         }
-        String classFilePath = FindBugs.class.getName().replaceAll("\\.", "/") + ".class";
+
+        String classFilePath = FindBugs.class.getName().replace('.', '/') + ".class";
         URL resource = FindBugs.class.getClassLoader().getResource(classFilePath);
         if (resource != null && "file".equals(resource.getProtocol())) {
-            try {
-                String classfile = URLDecoder.decode(resource.getPath(), Charset.defaultCharset().name());
-                Matcher m = Pattern.compile("(.*)/.*?/edu/umd.*").matcher(classfile);
-                if (m.matches()) {
-                    String home = m.group(1);
-                    if (new File(home + "/etc/findbugs.xml").exists()) {
-                        FindBugs.setHome(home);
-                        return home;
-                    }
+            String classfile = URLDecoder.decode(resource.getPath(), Charset.defaultCharset());
+            Matcher m = EDU_UMD_CLASSFILE_PATTERN.matcher(classfile);
+            if (m.matches()) {
+                String home = m.group(1);
+                if (Files.exists(Path.of(home, "etc", "findbugs.xml"))) {
+                    FindBugs.setHome(home);
+                    return home;
                 }
-            } catch (UnsupportedEncodingException e) {
             }
         }
         return null;
@@ -348,8 +352,7 @@ public class DetectorFactoryCollection {
 
     }
 
-    @CheckForNull
-    public static URL getCoreResource(String name) {
+    public static @Nullable URL getCoreResource(String name) {
         return PluginLoader.getCoreResource(name);
     }
 
@@ -474,7 +477,7 @@ public class DetectorFactoryCollection {
      *            the bug type for the bug pattern
      * @return the BugPattern, or null if it can't be found
      */
-    public @CheckForNull BugPattern lookupBugPattern(String bugType) {
+    public @Nullable BugPattern lookupBugPattern(String bugType) {
         if (bugType == null) {
             return null;
         }
@@ -503,7 +506,7 @@ public class DetectorFactoryCollection {
      *            the short bug type code
      * @return the description of that short bug type code means
      */
-    public @Nonnull BugCode getBugCode(String shortBugType) {
+    public @NonNull BugCode getBugCode(String shortBugType) {
         BugCode bugCode = lookupBugCode(shortBugType);
         if (bugCode == null) {
             throw new IllegalArgumentException("Error: missing bug code for key" + shortBugType);
@@ -515,7 +518,7 @@ public class DetectorFactoryCollection {
      * @param shortBugType the short bug type code
      * @return the description of that short bug type code means
      */
-    public @CheckForNull BugCode lookupBugCode(String shortBugType) {
+    public @Nullable BugCode lookupBugCode(String shortBugType) {
         return bugCodeMap.get(shortBugType);
     }
 
@@ -540,7 +543,7 @@ public class DetectorFactoryCollection {
      * @return Collection of bug category keys.
      */
     public Collection<String> getBugCategories() {
-        ArrayList<String> result = new ArrayList<>(categoryDescriptionMap.size());
+        List<String> result = new ArrayList<>(categoryDescriptionMap.size());
         for (BugCategory c : categoryDescriptionMap.values()) {
             if (!c.isHidden()) {
                 result.add(c.getCategory());

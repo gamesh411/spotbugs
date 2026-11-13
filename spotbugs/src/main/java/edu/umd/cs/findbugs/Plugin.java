@@ -20,10 +20,12 @@
 package edu.umd.cs.findbugs;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -33,12 +35,13 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.ba.AnalysisContext;
 import edu.umd.cs.findbugs.classfile.IAnalysisEngineRegistrar;
@@ -53,8 +56,7 @@ import edu.umd.cs.findbugs.util.DualKeyHashMap;
  * @see PluginLoader
  * @author David Hovemeyer
  */
-public class Plugin {
-
+public class Plugin implements AutoCloseable {
 
     private static final String USE_FINDBUGS_VERSION = "USE_FINDBUGS_VERSION";
     static Map<URI, Plugin> allPlugins = new LinkedHashMap<>();
@@ -66,12 +68,12 @@ public class Plugin {
     private String provider;
 
     private URI website;
-    private @CheckForNull URI updateUrl;
+    private @Nullable URI updateUrl;
 
     private String shortDescription;
     private String detailedDescription;
 
-    private final ArrayList<DetectorFactory> detectorFactoryList;
+    private final List<DetectorFactory> detectorFactoryList;
     private final Map<String, FindBugsMain> mainPlugins;
 
     private final LinkedHashSet<BugPattern> bugPatterns;
@@ -87,9 +89,9 @@ public class Plugin {
     private BugRanker bugRanker;
 
     // Ordering constraints
-    private final ArrayList<DetectorOrderingConstraint> interPassConstraintList;
+    private final List<DetectorOrderingConstraint> interPassConstraintList;
 
-    private final ArrayList<DetectorOrderingConstraint> intraPassConstraintList;
+    private final List<DetectorOrderingConstraint> intraPassConstraintList;
 
     // Optional: engine registrar class
     private Class<? extends IAnalysisEngineRegistrar> engineRegistrarClass;
@@ -113,7 +115,7 @@ public class Plugin {
      * @param pluginId
      *            the plugin's unique identifier
      */
-    public Plugin(String pluginId, String version, Date releaseDate, @Nonnull PluginLoader pluginLoader, boolean enabled, boolean cannotDisable) {
+    public Plugin(String pluginId, String version, Date releaseDate, @NonNull PluginLoader pluginLoader, boolean enabled, boolean cannotDisable) {
         this.pluginId = pluginId;
         if (version == null) {
             version = "";
@@ -167,7 +169,7 @@ public class Plugin {
      *
      * @return the provider, or null if the provider was not specified
      */
-    public @CheckForNull String getProvider() {
+    public @Nullable String getProvider() {
         return provider;
     }
 
@@ -175,7 +177,7 @@ public class Plugin {
         this.updateUrl = new URI(url);
     }
 
-    public @CheckForNull URI getUpdateUrl() {
+    public @Nullable URI getUpdateUrl() {
         return updateUrl;
     }
 
@@ -203,14 +205,14 @@ public class Plugin {
      *
      * @return the website, or null if the was not specified
      */
-    public @CheckForNull String getWebsite() {
+    public @Nullable String getWebsite() {
         if (website == null) {
             return null;
         }
         return website.toASCIIString();
     }
 
-    public @CheckForNull URI getWebsiteURI() {
+    public @Nullable URI getWebsiteURI() {
         return website;
     }
 
@@ -370,8 +372,7 @@ public class Plugin {
      * @param id may be null
      * @return return bug category with given id, may return null if the bug category is unknown
      */
-    @CheckForNull
-    public BugCategory getBugCategory(String id) {
+    public @Nullable BugCategory getBugCategory(String id) {
         return bugCategories.get(id);
     }
 
@@ -427,7 +428,7 @@ public class Plugin {
         public boolean choose(DetectorFactory factory);
     }
 
-    private @CheckForNull DetectorFactory findFirstMatchingFactory(FactoryChooser chooser) {
+    private @Nullable DetectorFactory findFirstMatchingFactory(FactoryChooser chooser) {
         for (DetectorFactory factory : getDetectorFactories()) {
             if (chooser.choose(factory)) {
                 return factory;
@@ -450,7 +451,7 @@ public class Plugin {
         mainPlugins.put(cmd, main);
     }
 
-    public @CheckForNull FindBugsMain getFindBugsMain(String cmd) {
+    public @Nullable FindBugsMain getFindBugsMain(String cmd) {
         return mainPlugins.get(cmd);
 
     }
@@ -480,7 +481,7 @@ public class Plugin {
         return (ComponentPlugin<T>) componentPlugins.get(componentClass, name);
     }
 
-    public static synchronized @CheckForNull Plugin getByPluginId(String name) {
+    public static synchronized @Nullable Plugin getByPluginId(String name) {
         if (name == null) {
             return null;
         }
@@ -505,7 +506,7 @@ public class Plugin {
     }
 
     public static synchronized Collection<String> getAllPluginIds() {
-        ArrayList<String> result = new ArrayList<>();
+        List<String> result = new ArrayList<>();
         for (Plugin p : allPlugins.values()) {
             result.add(p.getPluginId());
         }
@@ -538,16 +539,14 @@ public class Plugin {
     /**
      * @return may return null
      */
-    @CheckForNull
-    static synchronized Plugin getPlugin(URI uri) {
+    static synchronized @Nullable Plugin getPlugin(URI uri) {
         return allPlugins.get(uri);
     }
 
     /**
      * @return may return null
      */
-    @CheckForNull
-    static synchronized Plugin putPlugin(URI uri, Plugin plugin) {
+    static synchronized @Nullable Plugin putPlugin(URI uri, Plugin plugin) {
         return allPlugins.put(uri, plugin);
     }
 
@@ -620,7 +619,7 @@ public class Plugin {
         return getPluginLoader().getClassLoader();
     }
 
-    public @CheckForNull Plugin getParentPlugin() {
+    public @Nullable Plugin getParentPlugin() {
         if (getPluginLoader().hasParent()) {
             return Plugin.getByPluginId(getPluginLoader().parentId);
         }
@@ -635,7 +634,7 @@ public class Plugin {
      * @param project
      *      A nullable target project
      */
-    public static Plugin loadCustomPlugin(File f, @CheckForNull Project project)
+    public static Plugin loadCustomPlugin(File f, @Nullable Project project)
             throws PluginException {
         URL urlString;
         try {
@@ -649,7 +648,7 @@ public class Plugin {
     /**
      * Loads the given plugin and enables it for the given project.
      */
-    public static Plugin loadCustomPlugin(URL urlString, @CheckForNull Project project) throws PluginException {
+    public static Plugin loadCustomPlugin(URL urlString, @Nullable Project project) throws PluginException {
         Plugin plugin = addCustomPlugin(urlString);
         if (project != null) {
             project.setPluginStatusTrinary(plugin.getPluginId(), true);
@@ -657,15 +656,15 @@ public class Plugin {
         return plugin;
     }
 
-    public static @CheckForNull Plugin addCustomPlugin(URL u) throws PluginException {
+    public static @Nullable Plugin addCustomPlugin(URL u) throws PluginException {
         return addCustomPlugin(u, PluginLoader.class.getClassLoader());
     }
 
-    public static @CheckForNull Plugin addCustomPlugin(URI u) throws PluginException {
+    public static @Nullable Plugin addCustomPlugin(URI u) throws PluginException {
         return addCustomPlugin(u, PluginLoader.class.getClassLoader());
     }
 
-    public static @CheckForNull Plugin addCustomPlugin(URL u, ClassLoader parent) throws PluginException {
+    public static @Nullable Plugin addCustomPlugin(URL u, ClassLoader parent) throws PluginException {
         PluginLoader pluginLoader = PluginLoader.getPluginLoader(u, parent, false, true);
         Plugin plugin = pluginLoader.loadPlugin();
         if (plugin != null) {
@@ -674,7 +673,7 @@ public class Plugin {
         return plugin;
     }
 
-    public static @CheckForNull Plugin addCustomPlugin(URI u, ClassLoader parent) throws PluginException {
+    public static @Nullable Plugin addCustomPlugin(URI u, ClassLoader parent) throws PluginException {
         URL url;
         try {
             url = u.toURL();
@@ -696,4 +695,12 @@ public class Plugin {
         DetectorFactoryCollection.instance().unLoadPlugin(plugin);
     }
 
+    /**
+     * Closes the underlying {@link PluginLoader}, in turn this closes the {@link URLClassLoader}.
+     * When loading a custom plugin from a .jar file this method needs to be called to release the reference on that file.
+     */
+    @Override
+    public void close() throws IOException {
+        pluginLoader.close();
+    }
 }

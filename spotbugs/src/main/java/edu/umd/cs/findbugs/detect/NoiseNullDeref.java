@@ -26,9 +26,6 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.SortedSet;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-
 import org.apache.bcel.classfile.JavaClass;
 import org.apache.bcel.classfile.LineNumberTable;
 import org.apache.bcel.classfile.Method;
@@ -42,6 +39,8 @@ import org.apache.bcel.generic.InstructionTargeter;
 import org.apache.bcel.generic.InvokeInstruction;
 import org.apache.bcel.generic.MethodGen;
 import org.apache.bcel.generic.ReturnInstruction;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.BugAccumulator;
 import edu.umd.cs.findbugs.BugAnnotation;
@@ -143,21 +142,21 @@ public class NoiseNullDeref implements Detector, UseAnnotationDatabase, NullDere
             return;
         }
         Method[] methodList = jclass.getMethods();
-        for (Method method : methodList) {
+        for (Method m : methodList) {
             try {
-                if (method.isAbstract() || method.isNative() || method.getCode() == null) {
+                if (m.isAbstract() || m.isNative() || m.getCode() == null) {
                     continue;
                 }
 
-                currentMethod = SignatureConverter.convertMethodSignature(jclass, method);
+                currentMethod = SignatureConverter.convertMethodSignature(jclass, m);
 
-                if (METHOD_NAME != null && !method.getName().equals(METHOD_NAME)) {
+                if (METHOD_NAME != null && !m.getName().equals(METHOD_NAME)) {
                     continue;
                 }
                 if (DEBUG || DEBUG_NULLARG) {
                     System.out.println("Checking for NP in " + currentMethod);
                 }
-                analyzeMethod(classContext, method);
+                analyzeMethod(classContext, m);
             } catch (MissingClassException e) {
                 bugReporter.reportMissingClass(e.getClassNotFoundException());
             } catch (DataflowAnalysisException e) {
@@ -212,10 +211,10 @@ public class NoiseNullDeref implements Detector, UseAnnotationDatabase, NullDere
      */
     private BitSet findPreviouslyDeadBlocks() throws DataflowAnalysisException, CFGBuilderException {
         BitSet deadBlocks = new BitSet();
-        ValueNumberDataflow vnaDataflow = classContext.getValueNumberDataflow(method);
-        for (Iterator<BasicBlock> i = vnaDataflow.getCFG().blockIterator(); i.hasNext();) {
+        ValueNumberDataflow valueNumberDataflow = classContext.getValueNumberDataflow(method);
+        for (Iterator<BasicBlock> i = valueNumberDataflow.getCFG().blockIterator(); i.hasNext();) {
             BasicBlock block = i.next();
-            ValueNumberFrame vnaFrame = vnaDataflow.getStartFact(block);
+            ValueNumberFrame vnaFrame = valueNumberDataflow.getStartFact(block);
             if (vnaFrame.isTop()) {
                 deadBlocks.set(block.getLabel());
             }
@@ -305,7 +304,7 @@ public class NoiseNullDeref implements Detector, UseAnnotationDatabase, NullDere
     }
 
     private void reportNullDeref(WarningPropertySet<WarningProperty> propertySet, Location location, String type, int priority,
-            BugAnnotation cause, @CheckForNull BugAnnotation variable) {
+            BugAnnotation cause, @Nullable BugAnnotation variable) {
 
         BugInstance bugInstance = new BugInstance(this, type, priority).addClassAndMethod(classContext.getJavaClass(), method);
         bugInstance.add(cause);
@@ -351,9 +350,9 @@ public class NoiseNullDeref implements Detector, UseAnnotationDatabase, NullDere
     }
 
     @Override
-    public void foundGuaranteedNullDeref(@Nonnull Set<Location> assignedNullLocationSet, @Nonnull Set<Location> derefLocationSet,
+    public void foundGuaranteedNullDeref(@NonNull Set<Location> assignedNullLocationSet, @NonNull Set<Location> derefLocationSet,
             SortedSet<Location> doomedLocations, ValueNumberDataflow vna, ValueNumber refValue,
-            @CheckForNull BugAnnotation variableAnnotation, NullValueUnconditionalDeref deref, boolean npeIfStatementCovered) {
+            @Nullable BugAnnotation variableAnnotation, NullValueUnconditionalDeref deref, boolean npeIfStatementCovered) {
     }
 
     private void addPropertiesForDereferenceLocations(WarningPropertySet<WarningProperty> propertySet,
@@ -402,6 +401,7 @@ public class NoiseNullDeref implements Detector, UseAnnotationDatabase, NullDere
                 int lineNumber = table.getSourceLine(loc.getHandle().getPosition());
                 if (!linesMentionedMultipleTimes.get(lineNumber)) {
                     uniqueDereferenceLocations = true;
+                    break;
                 }
             }
         }
@@ -445,10 +445,7 @@ public class NoiseNullDeref implements Detector, UseAnnotationDatabase, NullDere
                 return "SOURCE_LINE_DEREF";
             }
             return pu.getDescription();
-        } catch (DataflowAnalysisException e) {
-            AnalysisContext.logError("Error getting UsagesRequiringNonNullValues for " + method, e);
-            return "SOURCE_LINE_DEREF";
-        } catch (CFGBuilderException e) {
+        } catch (DataflowAnalysisException | CFGBuilderException e) {
             AnalysisContext.logError("Error getting UsagesRequiringNonNullValues for " + method, e);
             return "SOURCE_LINE_DEREF";
         }

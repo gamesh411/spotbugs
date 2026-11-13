@@ -32,11 +32,10 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-
 import org.apache.bcel.Repository;
 import org.apache.bcel.classfile.JavaClass;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.AbstractBugReporter;
 import edu.umd.cs.findbugs.AnalysisCacheToRepositoryAdapter;
@@ -174,7 +173,7 @@ public class AnalysisContext implements AutoCloseable {
     private final Map<MethodInfo, MethodInfo> bridgeFrom;
 
 
-    public AnalysisContext(@Nonnull Project project) {
+    public AnalysisContext(@NonNull Project project) {
         requireNonNull(project);
         this.project = project;
         this.boolPropertySet = new BitSet();
@@ -200,11 +199,11 @@ public class AnalysisContext implements AutoCloseable {
     /**
      * Get the AnalysisContext associated with this thread
      */
-    static public AnalysisContext currentAnalysisContext() {
+    public static AnalysisContext currentAnalysisContext() {
         return currentAnalysisContext.get();
     }
 
-    static public XFactory currentXFactory() {
+    public static XFactory currentXFactory() {
         return currentXFactory.get();
     }
 
@@ -212,7 +211,7 @@ public class AnalysisContext implements AutoCloseable {
         return classBeingAnalyzed;
     }
 
-    public void setClassBeingAnalyzed(@Nonnull ClassDescriptor classBeingAnalyzed) {
+    public void setClassBeingAnalyzed(@NonNull ClassDescriptor classBeingAnalyzed) {
         this.classBeingAnalyzed = classBeingAnalyzed;
     }
 
@@ -227,7 +226,7 @@ public class AnalysisContext implements AutoCloseable {
         return classSummary;
     }
 
-    public void setClassSummary(@Nonnull ClassSummary classSummary) {
+    public void setClassSummary(@NonNull ClassSummary classSummary) {
         if (this.classSummary != null) {
             throw new IllegalStateException("ClassSummary already set");
         }
@@ -246,18 +245,18 @@ public class AnalysisContext implements AutoCloseable {
         return fieldSummary;
     }
 
-    public void setFieldSummary(@Nonnull FieldSummary fieldSummary) {
+    public void setFieldSummary(@NonNull FieldSummary fieldSummary) {
         if (this.fieldSummary != null) {
             AnalysisContext.logError("Field Summary already set", new IllegalStateException());
         }
         this.fieldSummary = fieldSummary;
     }
 
-    public @Nonnull UnreadFieldsData getUnreadFieldsData() {
+    public @NonNull UnreadFieldsData getUnreadFieldsData() {
         return unreadFieldsData;
     }
 
-    public @Nonnull UnreadFields getUnreadFields() {
+    public @NonNull UnreadFields getUnreadFields() {
         if (!unreadFieldsAvailable()) {
             throw new IllegalStateException();
         }
@@ -268,18 +267,18 @@ public class AnalysisContext implements AutoCloseable {
         return unreadFields != null;
     }
 
-    public void setUnreadFields(@Nonnull UnreadFields unreadFields) {
+    public void setUnreadFields(@NonNull UnreadFields unreadFields) {
         if (this.unreadFields != null) {
             throw new IllegalStateException("UnreadFields detector already set");
         }
         this.unreadFields = unreadFields;
     }
 
-    private static boolean skipReportingMissingClass(@CheckForNull @DottedClassName String missing) {
-        return missing == null || missing.length() == 0 || missing.charAt(0) == '[' || missing.endsWith("package-info");
+    private static boolean skipReportingMissingClass(@Nullable @DottedClassName String missing) {
+        return missing == null || missing.isEmpty() || missing.charAt(0) == '[' || missing.endsWith("package-info");
     }
 
-    private static @CheckForNull RepositoryLookupFailureCallback getCurrentLookupFailureCallback() {
+    private static @Nullable RepositoryLookupFailureCallback getCurrentLookupFailureCallback() {
         AnalysisContext currentAnalysisContext2 = currentAnalysisContext();
         if (currentAnalysisContext2 == null) {
             return null;
@@ -295,7 +294,7 @@ public class AnalysisContext implements AutoCloseable {
      *
      * @see #getLookupFailureCallback()
      */
-    static public void reportMissingClass(ClassNotFoundException e) {
+    public static void reportMissingClass(ClassNotFoundException e) {
         requireNonNull(e, "argument is null");
         String missing = AbstractBugReporter.getMissingClassName(e);
         if (skipReportingMissingClass(missing)) {
@@ -311,12 +310,12 @@ public class AnalysisContext implements AutoCloseable {
         }
     }
 
-    static public void reportMissingClass(edu.umd.cs.findbugs.ba.MissingClassException e) {
+    public static void reportMissingClass(edu.umd.cs.findbugs.ba.MissingClassException e) {
         requireNonNull(e, "argument is null");
         reportMissingClass(e.getClassDescriptor());
     }
 
-    static public boolean analyzingApplicationClass() {
+    public static boolean analyzingApplicationClass() {
         AnalysisContext context = AnalysisContext.currentAnalysisContext();
         if (context == null) {
             return false;
@@ -328,12 +327,12 @@ public class AnalysisContext implements AutoCloseable {
         return context.isApplicationClass(clazz);
     }
 
-    static public void reportMissingClass(edu.umd.cs.findbugs.classfile.MissingClassException e) {
+    public static void reportMissingClass(edu.umd.cs.findbugs.classfile.MissingClassException e) {
         requireNonNull(e, "argument is null");
         reportMissingClass(e.getClassDescriptor());
     }
 
-    static public void reportMissingClass(ClassDescriptor c) {
+    public static void reportMissingClass(ClassDescriptor c) {
         requireNonNull(c, "argument is null");
         if (!analyzingApplicationClass()) {
             return;
@@ -354,7 +353,7 @@ public class AnalysisContext implements AutoCloseable {
     /**
      * Report an error
      */
-    static public void logError(String msg, Exception e) {
+    public static void logError(String msg, Exception e) {
         AnalysisContext currentAnalysisContext2 = currentAnalysisContext();
         if (currentAnalysisContext2 == null) {
             if (e instanceof NoSuchBugPattern) {
@@ -388,7 +387,7 @@ public class AnalysisContext implements AutoCloseable {
     /**
      * Report an error
      */
-    static public void logError(String msg) {
+    public static void logError(String msg) {
         AnalysisContext currentAnalysisContext2 = currentAnalysisContext();
         if (currentAnalysisContext2 == null) {
             return;
@@ -397,9 +396,9 @@ public class AnalysisContext implements AutoCloseable {
     }
 
     public void logAnError(String msg) {
-        RepositoryLookupFailureCallback lookupFailureCallback = getLookupFailureCallback();
-        if (lookupFailureCallback != null) {
-            lookupFailureCallback.logError(msg);
+        RepositoryLookupFailureCallback failureCallback = getLookupFailureCallback();
+        if (failureCallback != null) {
+            failureCallback.logError(msg);
         }
     }
 
@@ -520,8 +519,8 @@ public class AnalysisContext implements AutoCloseable {
      * @throws ClassNotFoundException
      *             if the class can't be found
      */
-    public JavaClass lookupClass(@Nonnull ClassDescriptor classDescriptor) throws ClassNotFoundException {
-        return lookupClass(classDescriptor.toDottedClassName());
+    public JavaClass lookupClass(@NonNull ClassDescriptor classDescriptor) throws ClassNotFoundException {
+        return lookupClass(classDescriptor.getDottedClassName());
     }
 
     /**
@@ -537,9 +536,8 @@ public class AnalysisContext implements AutoCloseable {
      * @return the JavaClass representing the class
      * @throws ClassNotFoundException
      */
-    public static JavaClass lookupSystemClass(@Nonnull String className) throws ClassNotFoundException {
-        // TODO: eventually we should move to our own thread-safe repository
-        // implementation
+    public static JavaClass lookupSystemClass(@NonNull String className) throws ClassNotFoundException {
+        // TODO: eventually we should move to our own thread-safe repository implementation
         requireNonNull(className, "className is null");
         if (originalRepository == null) {
             throw new IllegalStateException("originalRepository is null");
@@ -563,7 +561,7 @@ public class AnalysisContext implements AutoCloseable {
      *         {@link SourceLineAnnotation#UNKNOWN_SOURCE_FILE} if unable to
      *         determine
      */
-    public final String lookupSourceFile(@Nonnull @DottedClassName String dottedClassName) {
+    public final String lookupSourceFile(@NonNull @DottedClassName String dottedClassName) {
         requireNonNull(dottedClassName, "className is null");
         try {
             XClass xClass = Global.getAnalysisCache().getClassAnalysis(XClass.class,
@@ -945,9 +943,9 @@ public class AnalysisContext implements AutoCloseable {
      * @throws ClassNotFoundException
      *             (but not really)
      */
-    public JavaClass lookupClass(@Nonnull @DottedClassName String className) throws ClassNotFoundException {
+    public JavaClass lookupClass(@NonNull @DottedClassName String className) throws ClassNotFoundException {
         try {
-            if (className.length() == 0) {
+            if (className.isEmpty()) {
                 throw new IllegalArgumentException("Class name is empty");
             }
             if (!ClassName.isValidClassName(className)) {
@@ -1032,18 +1030,13 @@ public class AnalysisContext implements AutoCloseable {
         return Global.getAnalysisCache().getDatabase(DirectlyRelevantTypeQualifiersDatabase.class);
     }
 
-
-    @CheckForNull
-    public XMethod getBridgeTo(MethodInfo m) {
+    public @Nullable XMethod getBridgeTo(MethodInfo m) {
         return bridgeTo.get(m);
     }
 
-
-    @CheckForNull
-    public XMethod getBridgeFrom(MethodInfo m) {
+    public @Nullable XMethod getBridgeFrom(MethodInfo m) {
         return bridgeFrom.get(m);
     }
-
 
     public void setBridgeMethod(MethodInfo from, MethodInfo to) {
         bridgeTo.put(from, to);

@@ -21,12 +21,10 @@ package de.tobject.findbugs.io;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-
-import javax.annotation.Nonnull;
+import java.io.OutputStream;
+import java.nio.file.Files;
 
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
@@ -35,6 +33,7 @@ import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
+import org.jspecify.annotations.NonNull;
 
 import de.tobject.findbugs.FindbugsPlugin;
 
@@ -83,7 +82,7 @@ public abstract class IO {
      *            non null
      * @throws CoreException
      */
-    private static void mkdirs(@Nonnull IResource resource, IProgressMonitor monitor) throws CoreException {
+    private static void mkdirs(@NonNull IResource resource, IProgressMonitor monitor) throws CoreException {
         IContainer container = resource.getParent();
         if (container.getType() == IResource.FOLDER && !container.exists()) {
             if (!container.getParent().exists()) {
@@ -102,7 +101,7 @@ public abstract class IO {
      *            the FileOutput object responsible for generating the data
      */
     public static void writeFile(final File file, final FileOutput output, final IProgressMonitor monitor) throws CoreException {
-        try (FileOutputStream fout = new FileOutputStream(file);
+        try (OutputStream fout = Files.newOutputStream(file.toPath());
                 BufferedOutputStream bout = new BufferedOutputStream(fout)) {
             if (monitor != null) {
                 monitor.subTask("writing data to " + file.getName());
@@ -115,13 +114,4 @@ public abstract class IO {
         }
     }
 
-    public static void closeQuietly(Closeable closeable) {
-        if (closeable != null) {
-            try {
-                closeable.close();
-            } catch (IOException e) {
-                // ignore
-            }
-        }
-    }
 }

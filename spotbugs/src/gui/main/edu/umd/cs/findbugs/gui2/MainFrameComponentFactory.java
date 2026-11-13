@@ -15,7 +15,6 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.MalformedURLException;
@@ -23,8 +22,6 @@ import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -43,6 +40,9 @@ import javax.swing.plaf.basic.BasicSplitPaneDivider;
 import javax.swing.plaf.basic.BasicSplitPaneUI;
 import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.StyleSheet;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.BugAnnotation;
 import edu.umd.cs.findbugs.BugAnnotationWithSourceLines;
@@ -195,7 +195,7 @@ public class MainFrameComponentFactory implements Serializable {
      * Sets the title of the source tabs for either docking or non-docking
      * versions.
      */
-    void setSourceTab(String title, @CheckForNull BugInstance bug) {
+    void setSourceTab(String title, @Nullable BugInstance bug) {
         JComponent label = mainFrame.getGuiLayout().getSourceViewComponent();
         if (label != null) {
             removeLink(label);
@@ -306,11 +306,9 @@ public class MainFrameComponentFactory implements Serializable {
         return label;
     }
 
-    private boolean sourceCodeExists(@Nonnull SourceLineAnnotation note) {
+    private boolean sourceCodeExists(@NonNull SourceLineAnnotation note) {
         try {
             mainFrame.getProject().getSourceFinder().findSourceFile(note);
-        } catch (FileNotFoundException e) {
-            return false;
         } catch (IOException e) {
             return false;
         }
@@ -405,30 +403,7 @@ public class MainFrameComponentFactory implements Serializable {
 
         private void setupOSX() {
             if (MainFrame.MAC_OS_X) {
-                try {
-                    mainFrame.mainFrameMenu.initOSX();
-                    mainFrame.mainFrameMenu.enablePreferencesMenuItem(true);
-                } catch (NoClassDefFoundError e) {
-                    // This will be thrown first if the OSXAdapter is loaded on
-                    // a system without the EAWT
-                    // because OSXAdapter extends ApplicationAdapter in its def
-                    System.err
-                            .println("This version of Mac OS X does not support the Apple EAWT. Application Menu handling has been disabled ("
-                                    + e + ")");
-                } catch (ClassNotFoundException e) {
-                    // This shouldn't be reached; if there's a problem with the
-                    // OSXAdapter we should get the
-                    // above NoClassDefFoundError first.
-                    System.err
-                            .println("This version of Mac OS X does not support the Apple EAWT. Application Menu handling has been disabled ("
-                                    + e + ")");
-                } catch (Exception e) {
-                    System.err.println("Exception while loading the OSXAdapter: " + e);
-                    e.printStackTrace();
-                    if (MainFrame.GUI2_DEBUG) {
-                        e.printStackTrace();
-                    }
-                }
+                mainFrame.mainFrameMenu.enablePreferencesMenuItem(true);
             }
         }
     }
@@ -449,7 +424,7 @@ public class MainFrameComponentFactory implements Serializable {
 
         private final SourceLineAnnotation note;
 
-        BugSummaryMouseListener(@Nonnull BugInstance bugInstance, @Nonnull JLabel label, @Nonnull SourceLineAnnotation link) {
+        BugSummaryMouseListener(@NonNull BugInstance bugInstance, @NonNull JLabel label, @NonNull SourceLineAnnotation link) {
             this.bugInstance = bugInstance;
             this.label = label;
             this.note = link;

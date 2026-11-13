@@ -27,8 +27,8 @@ import edu.umd.cs.findbugs.BugReporter;
 import edu.umd.cs.findbugs.ba.AnalysisContext;
 import edu.umd.cs.findbugs.ba.INullnessAnnotationDatabase;
 import edu.umd.cs.findbugs.ba.NullnessAnnotation;
-import edu.umd.cs.findbugs.ba.SignatureParser;
 import edu.umd.cs.findbugs.ba.XMethod;
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 import edu.umd.cs.findbugs.bcel.OpcodeStackDetector;
 
 /**
@@ -42,13 +42,13 @@ public abstract class TypeReturnNull extends OpcodeStackDetector {
 
     protected final BugAccumulator bugAccumulator;
 
-    public TypeReturnNull(BugReporter bugReporter) {
+    protected TypeReturnNull(BugReporter bugReporter) {
         this.bugAccumulator = new BugAccumulator(bugReporter);
     }
 
     @Override
     public void visit(Code code) {
-        SignatureParser sp = new SignatureParser(getMethodSig());
+        GenericSignatureParser sp = new GenericSignatureParser(getMethodSig());
         // Check to see if the method has expected return type
         String returnSignature = sp.getReturnTypeSignature();
         if (!matchesReturnSignature(returnSignature)) {
@@ -73,7 +73,11 @@ public abstract class TypeReturnNull extends OpcodeStackDetector {
 
     @Override
     public void sawOpcode(int seen) {
-        if (seen == Const.ARETURN && getPrevOpcode(1) == Const.ACONST_NULL) {
+        // Use the OpcodeStack nullness flag rather than matching the exact
+        // ACONST_NULL; ARETURN opcode pair, so that a null stored in a local
+        // variable before being returned (ACONST_NULL; ASTORE n; ALOAD n;
+        // ARETURN) is also reported. See issue #4037.
+        if (seen == Const.ARETURN && getStack().getStackItem(0).isNull()) {
             accumulateBug();
         }
     }

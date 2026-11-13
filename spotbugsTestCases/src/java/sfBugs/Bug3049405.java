@@ -1,16 +1,15 @@
 package sfBugs;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-
 import edu.umd.cs.findbugs.annotations.DesireNoWarning;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
 public class Bug3049405 {
-    @CheckForNull
-    final Object o = new Object();
+    final @Nullable Object o = new Object();
 
     @DesireNoWarning("NP_NULL_ON_SOME_PATH")
-    public void foo(@Nonnull Object o) {
+    public void foo(@NonNull Object o) {
         this.o.toString();
     }
 }

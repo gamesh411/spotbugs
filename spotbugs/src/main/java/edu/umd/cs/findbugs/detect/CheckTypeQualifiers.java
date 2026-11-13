@@ -24,7 +24,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import javax.annotation.CheckForNull;
 import javax.annotation.meta.When;
 
 import org.apache.bcel.classfile.Method;
@@ -33,6 +32,7 @@ import org.apache.bcel.generic.IfInstruction;
 import org.apache.bcel.generic.Instruction;
 import org.apache.bcel.generic.InstructionHandle;
 import org.apache.bcel.generic.InvokeInstruction;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.BugInstance;
 import edu.umd.cs.findbugs.BugReporter;
@@ -151,7 +151,7 @@ public class CheckTypeQualifiers extends CFGDetector {
             return;
         }
 
-        if (methodDescriptor.getName().startsWith("access$")) {
+        if (methodDescriptor.isAccessMethod()) {
             return;
         }
 
@@ -256,7 +256,7 @@ public class CheckTypeQualifiers extends CFGDetector {
 
     private void checkDataflow(XMethod xmethod, CFG cfg, TypeQualifierValue<?> typeQualifierValue,
             ValueNumberDataflow vnaDataflow, ForwardTypeQualifierDataflow forwardDataflow,
-            BackwardTypeQualifierDataflow backwardDataflow) throws DataflowAnalysisException, CheckedAnalysisException {
+            BackwardTypeQualifierDataflow backwardDataflow) throws CheckedAnalysisException {
         for (Iterator<Location> i = cfg.locationIterator(); i.hasNext();) {
             Location loc = i.next();
 
@@ -371,7 +371,7 @@ public class CheckTypeQualifiers extends CFGDetector {
 
     private void checkValueSources(XMethod xMethod, CFG cfg, TypeQualifierValue<?> typeQualifierValue,
             ValueNumberDataflow vnaDataflow, ForwardTypeQualifierDataflow forwardDataflow,
-            BackwardTypeQualifierDataflow backwardDataflow) throws DataflowAnalysisException, CheckedAnalysisException {
+            BackwardTypeQualifierDataflow backwardDataflow) throws CheckedAnalysisException {
 
         // Check to see if any backwards ALWAYS or NEVER values
         // reach incompatible sources.
@@ -494,7 +494,7 @@ public class CheckTypeQualifiers extends CFGDetector {
 
     private void emitDataflowWarning(XMethod xMethod, TypeQualifierValue<?> typeQualifierValue,
             TypeQualifierValueSet forwardsFact, TypeQualifierValueSet backwardsFact, ValueNumber vn, FlowValue forward,
-            FlowValue backward, Location locationToReport, @CheckForNull Location locationWhereDoomedValueIsObserved, ValueNumberFrame vnaFrame)
+            FlowValue backward, Location locationToReport, @Nullable Location locationWhereDoomedValueIsObserved, ValueNumberFrame vnaFrame)
             throws CheckedAnalysisException {
         String bugType;
         if (typeQualifierValue.isStrictQualifier() && forward == FlowValue.UNKNOWN) {
@@ -645,7 +645,7 @@ public class CheckTypeQualifiers extends CFGDetector {
         }
     }
 
-    private @CheckForNull Location getSinkLocation(SourceSinkInfo sourceSinkInfo) {
+    private @Nullable Location getSinkLocation(SourceSinkInfo sourceSinkInfo) {
         switch (sourceSinkInfo.getType()) {
 
         case ARGUMENT_TO_CALLED_METHOD:
@@ -658,7 +658,7 @@ public class CheckTypeQualifiers extends CFGDetector {
         }
     }
 
-    private @CheckForNull Location getSinkLocation(Iterable<? extends SourceSinkInfo> info) {
+    private @Nullable Location getSinkLocation(Iterable<? extends SourceSinkInfo> info) {
         for (SourceSinkInfo s : info) {
             Location l = getSinkLocation(s);
             if (l != null) {

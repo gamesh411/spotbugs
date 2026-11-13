@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 
-import javax.annotation.CheckForNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.BugCollection;
 import edu.umd.cs.findbugs.BugInstance;
@@ -48,7 +48,6 @@ import edu.umd.cs.findbugs.annotations.DesireNoWarning;
 import edu.umd.cs.findbugs.annotations.DesireWarning;
 import edu.umd.cs.findbugs.annotations.ExpectWarning;
 import edu.umd.cs.findbugs.annotations.NoWarning;
-import edu.umd.cs.findbugs.annotations.Priority;
 import edu.umd.cs.findbugs.ba.AnalysisContext;
 import edu.umd.cs.findbugs.ba.XClass;
 import edu.umd.cs.findbugs.ba.XField;
@@ -262,7 +261,6 @@ public class CheckExpectedWarnings implements Detector2, NonReportingDetector {
 
             String expectedBugCodes = (String) expect.getValue("value");
             EnumValue wantedConfidence = (EnumValue) expect.getValue("confidence");
-            EnumValue wantedPriority = (EnumValue) expect.getValue("priority");
             Integer num = (Integer) expect.getValue("num");
             if (num == null) {
                 num = (expectWarnings ? 1 : 0);
@@ -275,8 +273,6 @@ public class CheckExpectedWarnings implements Detector2, NonReportingDetector {
             int minPriority = Confidence.LOW.getConfidenceValue();
             if (wantedConfidence != null) {
                 minPriority = Confidence.valueOf(wantedConfidence.value).getConfidenceValue();
-            } else if (wantedPriority != null) {
-                minPriority = Priority.valueOf(wantedPriority.value).getPriorityValue();
             }
 
             if (DEBUG) {
@@ -289,7 +285,7 @@ public class CheckExpectedWarnings implements Detector2, NonReportingDetector {
                     }
                 }
             }
-            if (expectedBugCodes == null || expectedBugCodes.trim().length() == 0) {
+            if (expectedBugCodes == null || expectedBugCodes.trim().isEmpty()) {
                 checkAnnotation(null, warnings, expectWarnings, priority, rank, num, descriptor, minPriority, cd);
             } else {
                 StringTokenizer tok = new StringTokenizer(expectedBugCodes, ",");
@@ -301,7 +297,7 @@ public class CheckExpectedWarnings implements Detector2, NonReportingDetector {
         }
     }
 
-    public void checkAnnotation(@CheckForNull String bugCode, Collection<BugInstance> warnings, boolean expectWarnings, int priority,
+    public void checkAnnotation(@Nullable String bugCode, Collection<BugInstance> warnings, boolean expectWarnings, int priority,
             Integer rank, Integer num, Object methodDescriptor, int minPriority, ClassDescriptor cd) {
 
         String bugCodeMessage = bugCode != null ? bugCode : "any bug";
@@ -351,8 +347,7 @@ public class CheckExpectedWarnings implements Detector2, NonReportingDetector {
     }
 
     private static Collection<SourceLineAnnotation> countWarnings(Collection<BugInstance> warnings,
-            @CheckForNull String bugCode,
-            int desiredPriority, int rank) {
+            @Nullable String bugCode, int desiredPriority, int rank) {
 
         Collection<SourceLineAnnotation> matching = new HashSet<>();
         DetectorFactoryCollection i18n = DetectorFactoryCollection.instance();
@@ -407,10 +402,4 @@ public class CheckExpectedWarnings implements Detector2, NonReportingDetector {
         }
 
     }
-
-    @Override
-    public String getDetectorClassName() {
-        return CheckExpectedWarnings.class.getName();
-    }
-
 }

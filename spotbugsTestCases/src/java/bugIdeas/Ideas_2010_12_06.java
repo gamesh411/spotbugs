@@ -7,10 +7,10 @@ import java.io.PrintWriter;
 import java.util.Comparator;
 import java.util.concurrent.ConcurrentSkipListMap;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import edu.umd.cs.findbugs.annotations.ExpectWarning;
 import edu.umd.cs.findbugs.annotations.NoWarning;
@@ -18,7 +18,7 @@ import edu.umd.cs.findbugs.annotations.NoWarning;
 public class Ideas_2010_12_06 extends HttpServlet {
 
     @Override
-	@ExpectWarning("PT_RELATIVE_PATH_TRAVERSAL")
+    @ExpectWarning("PT_RELATIVE_PATH_TRAVERSAL")
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("text/plain");
         PrintWriter out = response.getWriter();
@@ -35,7 +35,7 @@ public class Ideas_2010_12_06 extends HttpServlet {
     }
 
     @Override
-	@ExpectWarning("PT_ABSOLUTE_PATH_TRAVERSAL")
+    @ExpectWarning("PT_ABSOLUTE_PATH_TRAVERSAL")
     public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("text/plain");
         PrintWriter out = response.getWriter();

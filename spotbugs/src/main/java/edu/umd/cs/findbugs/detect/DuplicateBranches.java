@@ -109,7 +109,9 @@ public class DuplicateBranches extends PreorderVisitor implements Detector {
     }
 
     private void findIfElseDuplicates(CFG cfg, Method method, BasicBlock bb) {
-        BasicBlock thenBB = null, elseBB = null;
+        BasicBlock thenBB = null;
+
+        BasicBlock elseBB = null;
 
         Iterator<Edge> iei = cfg.outgoingEdgeIterator(bb);
         while (iei.hasNext()) {
@@ -148,7 +150,24 @@ public class DuplicateBranches extends PreorderVisitor implements Detector {
         }
 
         if ((thenFinishPos - thenStartPos) != (elseFinishPos - elseStartPos)) {
-            return;
+            // An inner if in an outer then branch can end both arms with a
+            // GOTO past the outer else. Do not include that outer else in the
+            // inner comparison, but require the same unconditional join.
+            int candidatePos = elseStartPos + thenFinishPos - thenStartPos;
+            if (candidatePos >= elseFinishPos) {
+                return;
+            }
+            InstructionHandle candidate = elseStartHandle;
+            while (candidate != null && candidate.getPosition() < candidatePos) {
+                candidate = candidate.getNext();
+            }
+            if (candidate == null || candidate.getPosition() != candidatePos
+                    || !(candidate.getInstruction() instanceof GotoInstruction)
+                    || ((GotoInstruction) candidate.getInstruction()).getTarget() != elseFinishHandle) {
+                return;
+            }
+            elseFinishHandle = candidate;
+            elseFinishPos = candidatePos;
         }
 
         if (thenFinishPos <= thenStartPos) {

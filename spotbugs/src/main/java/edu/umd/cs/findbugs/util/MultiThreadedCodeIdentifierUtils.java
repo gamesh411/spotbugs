@@ -1,0 +1,231 @@
+/*
+ * SpotBugs - Find bugs in Java programs
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+
+package edu.umd.cs.findbugs.util;
+
+import java.util.Collection;
+import java.util.stream.Stream;
+
+import edu.umd.cs.findbugs.ba.AnalysisContext;
+import edu.umd.cs.findbugs.ba.CFG;
+import edu.umd.cs.findbugs.ba.ClassContext;
+import edu.umd.cs.findbugs.ba.DataflowAnalysisException;
+import edu.umd.cs.findbugs.ba.Location;
+import edu.umd.cs.findbugs.ba.LockDataflow;
+import edu.umd.cs.findbugs.ba.LockSet;
+import edu.umd.cs.findbugs.ba.ch.Subtypes2;
+import edu.umd.cs.findbugs.classfile.CheckedAnalysisException;
+import edu.umd.cs.findbugs.classfile.ClassDescriptor;
+import edu.umd.cs.findbugs.classfile.Global;
+import edu.umd.cs.findbugs.internalAnnotations.DottedClassName;
+import org.apache.bcel.classfile.AnnotationEntry;
+import org.apache.bcel.classfile.Field;
+import org.apache.bcel.classfile.JavaClass;
+import org.apache.bcel.classfile.LocalVariableTable;
+import org.apache.bcel.classfile.Method;
+import org.apache.bcel.generic.ConstantPoolGen;
+import org.apache.bcel.generic.INVOKEDYNAMIC;
+import org.apache.bcel.generic.Instruction;
+import org.apache.bcel.generic.InstructionHandle;
+import org.apache.bcel.generic.InvokeInstruction;
+import org.apache.bcel.generic.MONITORENTER;
+import org.apache.bcel.generic.MethodGen;
+
+/**
+ * Utility class with methods to identify multithreaded code
+ */
+public class MultiThreadedCodeIdentifierUtils {
+
+    private MultiThreadedCodeIdentifierUtils() {
+        throw new IllegalStateException("Utility class");
+    }
+
+    private static final String JAVA_LANG_RUNNABLE = "java.lang.Runnable";
+    private static final String ATOMIC_PACKAGE = "java/util/concurrent/atomic";
+
+    public static boolean isPartOfMultiThreadedCode(ClassContext classContext) {
+        JavaClass javaClass = classContext.getJavaClass();
+        if (isDirectlyPartOfMultiThreadedCode(javaClass, classContext)) {
+            return true;
+        }
+
+        // A non-static inner class shares the multi-threaded context of its
+        // enclosing class (for example an inner class declared in a Thread or
+        // Runnable subtype). The inheritance flows only through non-static
+        // inner-class links: a static nested class has no enclosing instance,
+        // so it does not inherit the enclosing context and the walk stops at a
+        // static-nesting boundary.
+        if (!hasEnclosingInstanceReference(javaClass)) {
+            return false;
+        }
+        try {
+            AnalysisContext analysisContext = AnalysisContext.currentAnalysisContext();
+            ClassDescriptor enclosing = classContext.getXClass().getImmediateEnclosingClass();
+            while (enclosing != null) {
+                JavaClass enclosingJavaClass = Global.getAnalysisCache().getClassAnalysis(JavaClass.class, enclosing);
+                if (isDirectlyPartOfMultiThreadedCode(enclosingJavaClass, analysisContext.getClassContext(enclosingJavaClass))) {
+                    return true;
+                }
+                if (!hasEnclosingInstanceReference(enclosingJavaClass)) {
+                    break;
+                }
+                enclosing = enclosing.getXClass().getImmediateEnclosingClass();
+            }
+        } catch (CheckedAnalysisException e) {
+            AnalysisContext.logError("Error while looking up enclosing class for multi-threaded-code check", e);
+        }
+
+        return false;
+    }
+
+    /**
+     * Returns whether {@code javaClass} is a non-static inner class that holds a
+     * reference to an enclosing instance. The compiler emits a synthetic
+     * {@code this$0} (or {@code this$1}, ...) field for that reference; static
+     * nested classes and top-level classes have no such field, so they do not
+     * share an enclosing instance's thread context.
+     */
+    private static boolean hasEnclosingInstanceReference(JavaClass javaClass) {
+        for (Field field : javaClass.getFields()) {
+            if (field.isSynthetic() && field.getName().startsWith("this$")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns whether the class described by {@code descriptor} is part of
+     * multi-threaded code in its own right, leaving out the context a non-static
+     * inner class inherits from its enclosing class.
+     */
+    public static boolean isDirectlyPartOfMultiThreadedCode(ClassDescriptor descriptor) throws CheckedAnalysisException {
+        JavaClass javaClass = Global.getAnalysisCache().getClassAnalysis(JavaClass.class, descriptor);
+        return isDirectlyPartOfMultiThreadedCode(javaClass, AnalysisContext.currentAnalysisContext().getClassContext(javaClass));
+    }
+
+    private static boolean isDirectlyPartOfMultiThreadedCode(JavaClass javaClass, ClassContext classContext) {
+        if (Subtypes2.instanceOf(javaClass, JAVA_LANG_RUNNABLE) ||
+                Stream.of(javaClass.getFields()).anyMatch(MultiThreadedCodeIdentifierUtils::isFieldIndicatingMultiThreadedContainer)) {
+            return true;
+        }
+
+        return Stream.of(javaClass.getMethods()).anyMatch(method -> isMethodMultiThreaded(method, classContext));
+    }
+
+    public static boolean isMethodMultiThreaded(Method method, ClassContext classContext) {
+        // TODO: probably should check that as well to avoid false positives?
+        // if (method.isSynthetic()) {
+        // return false;
+        // }
+
+        if (method.isSynchronized()) {
+            return true;
+        }
+
+        LocalVariableTable lvt = method.getLocalVariableTable();
+        if (lvt != null && Stream.of(lvt.getLocalVariableTable()).anyMatch(lv -> isFromAtomicPackage(lv.getSignature()))) {
+            return true;
+        }
+
+        MethodGen methodGen = classContext.getMethodGen(method);
+        if (methodGen != null) {
+            return hasMultiThreadedInstruction(methodGen);
+        } else {
+            return false;
+        }
+    }
+
+    private static boolean hasMultiThreadedInstruction(MethodGen methodGen) {
+        ConstantPoolGen cpg = methodGen.getConstantPool();
+
+        InstructionHandle handle = methodGen.getInstructionList().getStart();
+        while (handle != null) {
+            Instruction ins = handle.getInstruction();
+            if (ins instanceof MONITORENTER) {
+                return true;
+            } else if (ins instanceof InvokeInstruction && !(ins instanceof INVOKEDYNAMIC)) {
+                InvokeInstruction iins = (InvokeInstruction) ins;
+                String className = iins.getClassName(cpg);
+                String methodName = iins.getMethodName(cpg);
+                if (isConcurrentLockInterfaceCall(className, methodName) || CollectionAnalysis.isSynchronizedCollection(className, methodName)) {
+                    return true;
+                }
+            }
+            handle = handle.getNext();
+        }
+
+        return false;
+    }
+
+    private static boolean isConcurrentLockInterfaceCall(@DottedClassName String className, String methodName) {
+        return isInstanceOfLock(className)
+                && ("lock".equals(methodName)
+                        || "unlock".equals(methodName)
+                        || "tryLock".equals(methodName)
+                        || "lockInterruptibly".equals(methodName));
+    }
+
+    private static boolean isInstanceOfLock(@DottedClassName String className) {
+        return className != null && Subtypes2.instanceOf(className, "java.util.concurrent.locks.Lock");
+    }
+
+    private static boolean isFieldIndicatingMultiThreadedContainer(Field field) {
+        if (field.isSynthetic()) {
+            return false;
+        }
+        return field.isVolatile() || isFromAtomicPackage(field.getSignature())
+                || isInstanceOfLock(ClassName.fromFieldSignatureToDottedClassName(field.getSignature()));
+    }
+
+    private static boolean isFromAtomicPackage(String signature) {
+        return signature.contains(ATOMIC_PACKAGE);
+    }
+
+    public static boolean isLocked(Method currentMethod, CFG currentCFG, LockDataflow currentLockDataFlow, int pc) {
+        try {
+            if (currentMethod != null && currentLockDataFlow != null && currentCFG != null) {
+                Collection<Location> tLocations = currentCFG.getLocationsContainingInstructionWithOffset(pc);
+                for (Location tLoc : tLocations) {
+                    LockSet lockSet = currentLockDataFlow.getFactAtLocation(tLoc);
+                    if (lockSet.getNumLockedObjects() > 0) {
+                        // within a synchronized block
+                        return true;
+                    }
+                }
+            }
+        } catch (DataflowAnalysisException e) {
+            AnalysisContext.logError(String.format("Synchronization check caught an error when analyzing %s method.", currentMethod.getName()), e);
+        }
+        return false;
+    }
+
+    /**
+     * @return <code>true</code> if the class is explicitly annotated with <code>NotThreadSafe</code> to document that it is not thread safe
+     */
+    public static boolean isNotThreadSafe(ClassContext classContext) {
+        JavaClass javaClass = classContext.getJavaClass();
+
+        for (AnnotationEntry annotationEntry : javaClass.getAnnotationEntries()) {
+            if (annotationEntry.getAnnotationType().endsWith("/NotThreadSafe;")) {
+                return true;
+            }
+        }
+        return false;
+    }
+}

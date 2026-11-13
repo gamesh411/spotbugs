@@ -46,8 +46,8 @@ import edu.umd.cs.findbugs.ba.ClassContext;
 import edu.umd.cs.findbugs.ba.DataflowAnalysisException;
 import edu.umd.cs.findbugs.ba.Location;
 import edu.umd.cs.findbugs.ba.MethodUnprofitableException;
-import edu.umd.cs.findbugs.ba.SignatureParser;
 import edu.umd.cs.findbugs.ba.XField;
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 import edu.umd.cs.findbugs.ba.vna.ValueNumber;
 import edu.umd.cs.findbugs.ba.vna.ValueNumberDataflow;
 import edu.umd.cs.findbugs.ba.vna.ValueNumberFrame;
@@ -78,9 +78,7 @@ public class FindSelfComparison2 implements Detector {
                     // report
                     bugReporter.logError("skipping unprofitable method in " + getClass().getName());
                 }
-            } catch (CFGBuilderException e) {
-                bugReporter.logError("Detector " + this.getClass().getName() + " caught exception", e);
-            } catch (DataflowAnalysisException e) {
+            } catch (CFGBuilderException | DataflowAnalysisException e) {
                 bugReporter.logError("Detector " + this.getClass().getName() + " caught exception", e);
             }
         }
@@ -126,7 +124,7 @@ public class FindSelfComparison2 implements Detector {
                     }
                     String sig = iins.getSignature(cpg);
 
-                    SignatureParser parser = new SignatureParser(sig);
+                    GenericSignatureParser parser = new GenericSignatureParser(sig);
                     if (parser.getNumParameters() == 1
                             && (booleanComparisonMethod(invoking) && sig.endsWith(";)Z") || comparatorMethod(invoking) && sig.endsWith(";)I"))) {
                         checkForSelfOperation(classContext, location, valueNumberDataflow, "COMPARISON", method, methodGen,
@@ -146,11 +144,6 @@ public class FindSelfComparison2 implements Detector {
             case ISUB:
                 checkForSelfOperation(classContext, location, valueNumberDataflow, "COMPUTATION", method, methodGen, sourceFile);
                 break;
-            case FCMPG:
-            case DCMPG:
-            case DCMPL:
-            case FCMPL:
-                break;
             case LCMP:
             case IF_ACMPEQ:
             case IF_ACMPNE:
@@ -162,6 +155,10 @@ public class FindSelfComparison2 implements Detector {
             case IF_ICMPGE:
                 checkForSelfOperation(classContext, location, valueNumberDataflow, "COMPARISON", method, methodGen, sourceFile);
                 break;
+            case FCMPG:
+            case DCMPG:
+            case DCMPL:
+            case FCMPL:
             default:
                 break;
             }

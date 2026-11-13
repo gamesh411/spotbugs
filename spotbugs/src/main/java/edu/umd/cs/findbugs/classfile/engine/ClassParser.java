@@ -25,7 +25,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
-import javax.annotation.CheckForNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.classfile.ClassDescriptor;
 import edu.umd.cs.findbugs.classfile.DescriptorFactory;
@@ -78,7 +78,7 @@ public class ClassParser implements ClassParserInterface {
      * @param codeBaseEntry
      *            codebase entry class is loaded from
      */
-    public ClassParser(DataInputStream in, @CheckForNull ClassDescriptor expectedClassDescriptor, ICodeBaseEntry codeBaseEntry) {
+    public ClassParser(DataInputStream in, @Nullable ClassDescriptor expectedClassDescriptor, ICodeBaseEntry codeBaseEntry) {
         this.in = in;
         this.expectedClassDescriptor = expectedClassDescriptor;
         this.codeBaseEntry = codeBaseEntry;
@@ -185,7 +185,7 @@ public class ClassParser implements ClassParserInterface {
     }
 
     public static void extractReferencedClassesFromSignature(Set<ClassDescriptor> referencedClassSet, String signature) {
-        while (signature.length() > 0) {
+        while (!signature.isEmpty()) {
             int start = signature.indexOf('L');
             if (start < 0) {
                 break;
@@ -227,7 +227,7 @@ public class ClassParser implements ClassParserInterface {
         null, // 14:
         "bi", // 15: CONSTANT_MethodHandle
         "i", // 16: CONSTANT_MethodType
-        null, // 17:
+        "ii", // 17: CONSTANT_Dynamic
         "ii", // 18: CONSTANT_InvokeDynamic
         "i", // 19: CONSTANT_Module
         "i", // 20: CONSTANT_Package
@@ -302,9 +302,7 @@ public class ClassParser implements ClassParserInterface {
         checkConstantTag(constant, IClassConstants.CONSTANT_Class);
 
         int refIndex = ((Integer) constant.data[0]).intValue();
-        String stringValue = getUtf8String(refIndex);
-
-        return stringValue;
+        return getUtf8String(refIndex);
     }
 
     /**

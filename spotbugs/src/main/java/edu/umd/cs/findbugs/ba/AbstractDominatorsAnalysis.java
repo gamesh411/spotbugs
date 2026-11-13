@@ -22,10 +22,8 @@ package edu.umd.cs.findbugs.ba;
 import java.util.BitSet;
 import java.util.Iterator;
 
-import javax.annotation.CheckForNull;
-
 import org.apache.bcel.generic.InstructionHandle;
-
+import org.jspecify.annotations.Nullable;
 
 /**
  * <p>A dataflow analysis to compute dominator relationships between basic blocks.
@@ -59,7 +57,7 @@ public abstract class AbstractDominatorsAnalysis extends BasicAbstractDataflowAn
      * @param ignoreExceptionEdges
      *            true if exception edges should be ignored
      */
-    public AbstractDominatorsAnalysis(CFG cfg, final boolean ignoreExceptionEdges) {
+    protected AbstractDominatorsAnalysis(CFG cfg, final boolean ignoreExceptionEdges) {
         this(cfg, edge -> {
             return !(ignoreExceptionEdges && edge.isExceptionEdge());
         });
@@ -73,7 +71,7 @@ public abstract class AbstractDominatorsAnalysis extends BasicAbstractDataflowAn
      * @param edgeChooser
      *            EdgeChooser to choose which Edges to consider significant
      */
-    public AbstractDominatorsAnalysis(CFG cfg, EdgeChooser edgeChooser) {
+    protected AbstractDominatorsAnalysis(CFG cfg, EdgeChooser edgeChooser) {
         this.cfg = cfg;
         this.edgeChooser = edgeChooser;
     }
@@ -113,7 +111,7 @@ public abstract class AbstractDominatorsAnalysis extends BasicAbstractDataflowAn
     }
 
     @Override
-    public void transfer(BasicBlock basicBlock, @CheckForNull InstructionHandle end, BitSet start, BitSet result)
+    public void transfer(BasicBlock basicBlock, @Nullable InstructionHandle end, BitSet start, BitSet result)
             throws DataflowAnalysisException {
         // Start with intersection of dominators of predecessors
         copy(start, result);

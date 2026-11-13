@@ -19,14 +19,13 @@
 package de.tobject.findbugs;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.SortedMap;
 import java.util.TreeMap;
-
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
 
 import org.eclipse.core.runtime.FileLocator;
 import org.eclipse.core.runtime.IConfigurationElement;
@@ -34,9 +33,9 @@ import org.eclipse.core.runtime.IContributor;
 import org.eclipse.core.runtime.IExtensionRegistry;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Platform;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.osgi.framework.Bundle;
-
-import de.tobject.findbugs.io.IO;
 
 /**
  * Helper class to read contributions for the "detectorPlugins" extension point
@@ -109,20 +108,19 @@ public class DetectorsExtensionHelper {
      *            non null
      * @return resolved absolute path for the detector package
      */
-    @CheckForNull
-    private static String resolveRelativePath(IContributor contributor, String libPathAsString) {
+    private static @Nullable String resolveRelativePath(IContributor contributor, String libPathAsString) {
         String bundleName = contributor.getName();
         Bundle bundle = Platform.getBundle(bundleName);
         if (bundle == null) {
             return null;
         }
-        File bundleFile;
-        try {
-            bundleFile = FileLocator.getBundleFile(bundle);
-        } catch (IOException e) {
-            FindbugsPlugin.getDefault().logException(e, "Failed to resolve detector library for " + bundle.getSymbolicName());
+        Optional<File> optBundleFile = FileLocator.getBundleFileLocation(bundle);
+        if (!optBundleFile.isPresent()) {
+            FindbugsPlugin.getDefault().logError("Failed to resolve detector library for " + bundle.getSymbolicName());
             return null;
         }
+
+        File bundleFile = optBundleFile.get();
         boolean runningInDebugger = Boolean.getBoolean("eclipse.pde.launch");
         if (!DEFAULT_USE_PLUGIN_JAR.equals(libPathAsString)) {
             return new Path(bundleFile.getAbsolutePath()).append(libPathAsString).toOSString();
@@ -151,8 +149,7 @@ public class DetectorsExtensionHelper {
      * "bin" directory. It doesn't work if the plugin build.properties are not
      * existing or contain invalid content
      */
-    @CheckForNull
-    private static String resolvePluginClassesDir(String bundleName, File sourceDir) {
+    private static @Nullable String resolvePluginClassesDir(String bundleName, File sourceDir) {
         if (sourceDir.listFiles() == null) {
             FindbugsPlugin.getDefault().logException(new IllegalStateException("No files in the bundle!"),
                     "Failed to create temporary detector package for bundle " + sourceDir);
@@ -160,7 +157,7 @@ public class DetectorsExtensionHelper {
         }
 
         String outputDir = getBuildDirectory(bundleName, sourceDir);
-        if (outputDir.length() == 0) {
+        if (outputDir.isEmpty()) {
             FindbugsPlugin.getDefault().logException(new IllegalStateException("No output directory in build.properties"),
                     "No output directory in build.properties " + sourceDir);
             return null;
@@ -185,24 +182,18 @@ public class DetectorsExtensionHelper {
     /**
      * @return possible deployment root directory of a plugin project
      */
-    @Nonnull
-    private static String getBuildDirectory(String bundleName, File sourceDir) {
+    private static @NonNull String getBuildDirectory(String bundleName, File sourceDir) {
         Properties props = new Properties();
         File buildProps = new File(sourceDir, "build.properties");
         if (buildProps.isFile()) {
-            FileInputStream inStream = null;
-            try {
-                inStream = new FileInputStream(buildProps);
+            try (InputStream inStream = Files.newInputStream(buildProps.toPath())) {
                 props.load(inStream);
             } catch (IOException e) {
                 FindbugsPlugin.getDefault().logException(e, "Failed to read build.properties for bundle " + bundleName);
-            } finally {
-                IO.closeQuietly(inStream);
             }
         }
         // this works only for plugins which are self-contained and do not
-        // include
-        // any external libraries
+        // include any external libraries
         return props.getProperty("output..", "");
     }
 }

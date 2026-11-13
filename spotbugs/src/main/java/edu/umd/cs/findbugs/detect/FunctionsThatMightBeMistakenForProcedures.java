@@ -21,13 +21,12 @@ package edu.umd.cs.findbugs.detect;
 
 import java.util.HashSet;
 
-import javax.annotation.CheckForNull;
-
 import org.apache.bcel.Const;
 import org.apache.bcel.classfile.Code;
 import org.apache.bcel.classfile.Field;
 import org.apache.bcel.classfile.JavaClass;
 import org.apache.bcel.generic.Type;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.BugInstance;
 import edu.umd.cs.findbugs.BugReporter;
@@ -53,7 +52,7 @@ public class FunctionsThatMightBeMistakenForProcedures extends OpcodeStackDetect
 
     private final boolean testingEnabled;
 
-    final static boolean REPORT_INFERRED_METHODS = SystemProperties.getBoolean("mrc.inferred.report");
+    static final boolean REPORT_INFERRED_METHODS = SystemProperties.getBoolean("mrc.inferred.report");
 
     public FunctionsThatMightBeMistakenForProcedures(BugReporter bugReporter) {
         this.bugReporter = bugReporter;
@@ -61,7 +60,8 @@ public class FunctionsThatMightBeMistakenForProcedures extends OpcodeStackDetect
         testingEnabled = SystemProperties.getBoolean("report_TESTING_pattern_in_standard_detectors");
     }
 
-    boolean isInnerClass, hasNonFinalFields;
+    boolean isInnerClass;
+    boolean hasNonFinalFields;
 
     @Override
     public void visit(JavaClass obj) {
@@ -97,11 +97,14 @@ public class FunctionsThatMightBeMistakenForProcedures extends OpcodeStackDetect
 
     HashSet<XMethod> doNotIgnoreHigh = new HashSet<>();
 
-    int returnSelf, returnOther, returnNew, returnUnknown;
+    int returnSelf;
+    int returnOther;
+    int returnNew;
+    int returnUnknown;
 
     int updates;
 
-    @CheckForNull
+    @Nullable
     BugInstance inferredMethod;
 
     @Override
@@ -253,7 +256,7 @@ public class FunctionsThatMightBeMistakenForProcedures extends OpcodeStackDetect
                 if (!isInnerClass) {
                     voidConstructor = "()V".equals(sig);
                 } else {
-                    SignatureParser parser = new SignatureParser(sig);
+                    GenericSignatureParser parser = new GenericSignatureParser(sig);
                     voidConstructor = parser.getNumParameters() <= 1;
                 }
                 if (voidConstructor) {

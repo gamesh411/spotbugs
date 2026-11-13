@@ -40,13 +40,16 @@ public class BadAppletConstructor extends BytecodeScanningDetector {
 
     public BadAppletConstructor(BugReporter bugReporter) {
         this.bugReporter = bugReporter;
-        JavaClass appletClass = null;
+        JavaClass appletCls = null;
         try {
-            appletClass = Repository.lookupClass("java.applet.Applet");
+            appletCls = Repository.lookupClass("java.applet.Applet");
         } catch (ClassNotFoundException cnfe) {
-            bugReporter.reportMissingClass(cnfe);
+            // Applets removed java 26 and above, do not mention its missing
+            if (Runtime.version().feature() < 26) {
+                bugReporter.reportMissingClass(cnfe);
+            }
         }
-        this.appletClass = appletClass;
+        this.appletClass = appletCls;
     }
 
     @Override

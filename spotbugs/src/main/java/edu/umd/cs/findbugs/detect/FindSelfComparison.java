@@ -34,9 +34,9 @@ import edu.umd.cs.findbugs.LocalVariableAnnotation;
 import edu.umd.cs.findbugs.OpcodeStack;
 import edu.umd.cs.findbugs.SourceLineAnnotation;
 import edu.umd.cs.findbugs.SystemProperties;
-import edu.umd.cs.findbugs.ba.SignatureParser;
 import edu.umd.cs.findbugs.ba.XClass;
 import edu.umd.cs.findbugs.ba.XField;
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 import edu.umd.cs.findbugs.bcel.OpcodeStackDetector;
 import edu.umd.cs.findbugs.util.EditDistance;
 
@@ -48,7 +48,19 @@ public class FindSelfComparison extends OpcodeStackDetector {
         this.bugAccumulator = new BugAccumulator(bugReporter);
     }
 
+    /**
+     * Maximum number of instructions allowed between two PUTFIELDs to the same field for them to be considered a double assignment.
+     * The distance is counted in instructions rather than bytecode offsets, so that wide operands (e.g. {@code ldc2_w} for
+     * {@code long} and {@code double} constants) don't hide double assignments, see
+     * <a href="https://github.com/spotbugs/spotbugs/issues/3975">#3975</a>.
+     */
+    private static final int MAX_INSTRUCTIONS_BETWEEN_PUTFIELDS = 6;
+
     int putFieldPC = Integer.MIN_VALUE;
+
+    int putFieldInstructionIndex;
+
+    int instructionIndex;
 
     OpcodeStack.Item putFieldObj;
 
@@ -68,6 +80,7 @@ public class FindSelfComparison extends OpcodeStackDetector {
         whichRegister = -1;
         registerLoadCount = 0;
         lastMethodCall = -1;
+        instructionIndex = 0;
         resetDoubleAssignmentState();
         super.visit(obj);
         resetDoubleAssignmentState();
@@ -79,6 +92,7 @@ public class FindSelfComparison extends OpcodeStackDetector {
 
     private void resetDoubleAssignmentState() {
         putFieldPC = Integer.MIN_VALUE;
+        putFieldInstructionIndex = Integer.MIN_VALUE;
         putFieldXField = null;
         putFieldValue = null;
         putFieldObj = null;
@@ -94,7 +108,7 @@ public class FindSelfComparison extends OpcodeStackDetector {
         if (DEBUG) {
             System.out.printf("%3d %-15s %s%n", getPC(), Const.getOpcodeName(seen), stack);
         }
-
+        instructionIndex++;
 
         if (stack.hasIncomingBranches(getPC())) {
             resetDoubleAssignmentState();
@@ -106,8 +120,9 @@ public class FindSelfComparison extends OpcodeStackDetector {
             XField f = getXFieldOperand();
             XClass x = getXClassOperand();
 
-            checkPUTFIELD: if (putFieldPC + 10 > getPC() && f != null && obj != null && f.equals(putFieldXField)
-                    && !f.isSynthetic() && obj.sameValue(putFieldObj) && x != null) {
+            checkPUTFIELD: if (f != null && obj != null && x != null
+                    && putFieldInstructionIndex + MAX_INSTRUCTIONS_BETWEEN_PUTFIELDS + 1 >= instructionIndex
+                    && f.equals(putFieldXField) && !f.isSynthetic() && obj.sameValue(putFieldObj)) {
 
 
                 LineNumberTable table = getCode().getLineNumberTable();
@@ -163,6 +178,7 @@ public class FindSelfComparison extends OpcodeStackDetector {
                 bugAccumulator.accumulateBug(bug, this);
             }
             putFieldPC = getPC();
+            putFieldInstructionIndex = instructionIndex;
             putFieldXField = f;
             putFieldObj = obj;
             putFieldValue = value;
@@ -197,7 +213,7 @@ public class FindSelfComparison extends OpcodeStackDetector {
             boolean booleanComparisonMethod = FindSelfComparison2.booleanComparisonMethod(name);
             if (booleanComparisonMethod || FindSelfComparison2.comparatorMethod(name)) {
                 String sig = getSigConstantOperand();
-                SignatureParser parser = new SignatureParser(sig);
+                GenericSignatureParser parser = new GenericSignatureParser(sig);
                 int numParameters = parser.getNumParameters();
                 if ((numParameters == 1 || seen == Const.INVOKESTATIC && numParameters == 2)
                         && (booleanComparisonMethod && sig.endsWith(";)Z")
@@ -217,11 +233,6 @@ public class FindSelfComparison extends OpcodeStackDetector {
         case Const.ISUB:
             checkForSelfOperation(seen, "COMPUTATION");
             break;
-        case Const.FCMPG:
-        case Const.DCMPG:
-        case Const.DCMPL:
-        case Const.FCMPL:
-            break;
         case Const.LCMP:
         case Const.IF_ACMPEQ:
         case Const.IF_ACMPNE:
@@ -233,6 +244,10 @@ public class FindSelfComparison extends OpcodeStackDetector {
         case Const.IF_ICMPGE:
             checkForSelfOperation(seen, "COMPARISON");
             break;
+        case Const.FCMPG:
+        case Const.DCMPG:
+        case Const.DCMPL:
+        case Const.FCMPL:
         default:
             break;
         }

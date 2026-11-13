@@ -1,7 +1,8 @@
 package sfBugs;
 
 import edu.umd.cs.findbugs.annotations.DefaultAnnotation;
-import edu.umd.cs.findbugs.annotations.NonNull;
+
+import org.jspecify.annotations.NonNull;
 
 @DefaultAnnotation(NonNull.class)
 public class Bug1663624 {
@@ -19,7 +20,7 @@ public class Bug1663624 {
     public void show(SomeInterface reference) {
         Object object = reference.condition1() ? reference.get() : null;
         if (reference.condition2()) {
-            foo(object); // (*) object may bu null!
+            foo(object); // (*) object may be null!
         }
     }
 

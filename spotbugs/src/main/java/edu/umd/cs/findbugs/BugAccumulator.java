@@ -22,17 +22,21 @@ package edu.umd.cs.findbugs;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
-
-import javax.annotation.CheckForNull;
 
 import org.apache.bcel.classfile.Method;
 import org.apache.bcel.generic.MethodGen;
+import org.jspecify.annotations.Nullable;
 
+import edu.umd.cs.findbugs.ba.AccessMethodDatabase;
+import edu.umd.cs.findbugs.ba.AccessMethodDatabase.AccessMethodLocation;
 import edu.umd.cs.findbugs.ba.AnalysisContext;
 import edu.umd.cs.findbugs.ba.AnalysisFeatures;
 import edu.umd.cs.findbugs.ba.ClassContext;
 import edu.umd.cs.findbugs.ba.Location;
+import edu.umd.cs.findbugs.classfile.Global;
+import edu.umd.cs.findbugs.classfile.MethodDescriptor;
 
 /**
  * Accumulate warnings that may occur at multiple source locations,
@@ -80,7 +84,7 @@ public class BugAccumulator {
         performAccumulation = AnalysisContext.currentAnalysisContext().getBoolProperty(AnalysisFeatures.MERGE_SIMILAR_WARNINGS);
     }
 
-    public @CheckForNull SourceLineAnnotation getLastBugLocation() {
+    public @Nullable SourceLineAnnotation getLastBugLocation() {
         return lastSourceLine;
     }
 
@@ -124,6 +128,10 @@ public class BugAccumulator {
             BugInstance conflictingBug = hashes.get(hash);
             if (conflictingBug != null) {
                 if (conflictingBug.getPriority() <= priority) {
+                    Data existingData = map.get(conflictingBug);
+                    if (existingData != null) {
+                        existingData.allSource.add(sourceLine);
+                    }
                     return;
                 }
                 map.remove(conflictingBug);
@@ -156,7 +164,17 @@ public class BugAccumulator {
      *            the BytecodeScanningDetector
      */
     public void accumulateBug(BugInstance bug, BytecodeScanningDetector visitor) {
+        MethodDescriptor methodDescriptor = visitor.getMethodDescriptor();
+
         SourceLineAnnotation source = SourceLineAnnotation.fromVisitedInstruction(visitor);
+        if (methodDescriptor.isAccessMethod()) {
+            AccessMethodDatabase database = Global.getAnalysisCache().getDatabase(AccessMethodDatabase.class);
+            List<AccessMethodLocation> locations = database.getAccessMethodLocations(methodDescriptor);
+            if (!locations.isEmpty()) {
+                source = locations.get(0).getSourceLineAnnotation();
+            }
+        }
+
         accumulateBug(bug, source);
     }
 

@@ -20,6 +20,7 @@
 package edu.umd.cs.findbugs.classfile.analysis;
 
 import java.lang.annotation.ElementType;
+import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -29,13 +30,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.annotation.CheckForNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.SystemProperties;
 import edu.umd.cs.findbugs.ba.AnalysisContext;
 import edu.umd.cs.findbugs.ba.XClass;
 import edu.umd.cs.findbugs.ba.XField;
 import edu.umd.cs.findbugs.ba.XMethod;
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 import edu.umd.cs.findbugs.classfile.CheckedAnalysisException;
 import edu.umd.cs.findbugs.classfile.ClassDescriptor;
 import edu.umd.cs.findbugs.classfile.DescriptorFactory;
@@ -57,7 +59,7 @@ import edu.umd.cs.findbugs.util.Util;
  */
 public class ClassInfo extends ClassNameAndSuperclassInfo implements XClass {
 
-    private final static boolean DEBUG = SystemProperties.getBoolean("ci.debug");
+    private static final boolean DEBUG = SystemProperties.getBoolean("ci.debug");
     private final FieldInfo[] xFields;
 
     private final MethodInfo[] xMethods;
@@ -68,18 +70,25 @@ public class ClassInfo extends ClassNameAndSuperclassInfo implements XClass {
 
     /* final */Map<ClassDescriptor, AnnotationValue> classAnnotations;
 
-    final private String classSourceSignature;
+    private final String classSourceSignature;
 
-    final private String source;
+    private final String source;
 
     private final boolean usesConcurrency;
 
     private final boolean hasStubs;
 
-    @CheckForNull
+    @Nullable
     AnnotatedObject containingScope;
 
     private boolean containingScopeCached;
+
+    /**
+     * The class' polymorphic methods, indexed by name and signature.
+     * See {@link MethodHandle} which is a special case where a method has multiple signatures.
+     * The methods are assumed to be non-static.
+     */
+    private final Map<String, Map<String, MethodInfo>> polymorphicMethods;
 
     public static class Builder extends ClassNameAndSuperclassInfo.Builder {
         private List<FieldInfo> fieldInfoList = new LinkedList<>();
@@ -103,20 +112,12 @@ public class ClassInfo extends ClassNameAndSuperclassInfo implements XClass {
 
         boolean hasStubs;
 
-        private static String arguments(String signature) {
-            int i = signature.indexOf('(');
-            if (i == -1) {
-                return signature;
-            }
-            return signature.substring(0, i + 1);
-        }
-
         @Override
         public ClassInfo build() {
             AnalysisContext context = AnalysisContext.currentAnalysisContext();
-            FieldInfo fields[];
-            MethodInfo methods[];
-            if (fieldInfoList.size() == 0) {
+            FieldInfo[] fields;
+            MethodInfo[] methods;
+            if (fieldInfoList.isEmpty()) {
                 fields = FieldInfo.EMPTY_ARRAY;
             } else {
                 fields = fieldInfoList.toArray(new FieldInfo[0]);
@@ -129,17 +130,17 @@ public class ClassInfo extends ClassNameAndSuperclassInfo implements XClass {
                     if (DEBUG) {
                         System.out.println("Have bridge method:" + m);
                     }
-                    for (MethodInfo to : methodInfoList) {
-                        if (m != to) {
-                            if (!to.isBridge()
-                                    && m.getName().equals(to.getName())
-                                    && arguments(m.getSignature()).equals(arguments(to.getSignature()))) {
-                                if (DEBUG) {
-                                    System.out.println("  to method:" + to);
-                                }
-                                bridgedSignatures.put(m, to.getSignature());
-                            }
 
+                    String[] mArguments = new GenericSignatureParser(m.getSignature()).getArguments();
+
+                    for (MethodInfo to : methodInfoList) {
+                        if (m != to && !to.isBridge()
+                                && m.getName().equals(to.getName())
+                                && Arrays.equals(mArguments, new GenericSignatureParser(to.getSignature()).getArguments())) {
+                            if (DEBUG) {
+                                System.out.println("  to method:" + to);
+                            }
+                            bridgedSignatures.put(m, to.getSignature());
                         }
                     } // end  for(MethodInfo to
                 } // end  if (m.isBridge()
@@ -170,7 +171,7 @@ public class ClassInfo extends ClassNameAndSuperclassInfo implements XClass {
 
             } // end for
 
-            if (methodInfoList.size() == 0) {
+            if (methodInfoList.isEmpty()) {
                 methods = MethodInfo.EMPTY_ARRAY;
             } else {
                 methods = methodInfoList.toArray(new MethodInfo[0]);
@@ -179,7 +180,7 @@ public class ClassInfo extends ClassNameAndSuperclassInfo implements XClass {
             return new ClassInfo(classDescriptor, classSourceSignature, superclassDescriptor, interfaceDescriptorList,
                     codeBaseEntry, accessFlags, source, majorVersion, minorVersion, referencedClassDescriptorList,
                     calledClassDescriptors, classAnnotations, fields, methods, immediateEnclosingClass, usesConcurrency,
-                    hasStubs);
+                    hasStubs, new HashMap<>());
         }
 
         public void setSource(String source) {
@@ -285,7 +286,7 @@ public class ClassInfo extends ClassNameAndSuperclassInfo implements XClass {
             int majorVersion, int minorVersion, Collection<ClassDescriptor> referencedClassDescriptorList,
             Set<ClassDescriptor> calledClassDescriptors, Map<ClassDescriptor, AnnotationValue> classAnnotations,
             FieldInfo[] fieldDescriptorList, MethodInfo[] methodInfoList, ClassDescriptor immediateEnclosingClass,
-            boolean usesConcurrency, boolean hasStubs) {
+            boolean usesConcurrency, boolean hasStubs, Map<String, Map<String, MethodInfo>> polymorphicMethods) {
         super(classDescriptor, superclassDescriptor, interfaceDescriptorList, codeBaseEntry, accessFlags,
                 referencedClassDescriptorList, calledClassDescriptors, majorVersion, minorVersion);
         this.source = source;
@@ -300,15 +301,7 @@ public class ClassInfo extends ClassNameAndSuperclassInfo implements XClass {
         this.usesConcurrency = usesConcurrency;
         this.hasStubs = hasStubs;
         this.methodsInCallOrder = computeMethodsInCallOrder();
-        /*
-        if (false) {
-            System.out.println("Methods in call order for " + classDescriptor);
-            for (MethodInfo m : methodsInCallOrder) {
-                System.out.println("  " + m);
-            }
-            System.out.println();
-        }
-         */
+        this.polymorphicMethods = polymorphicMethods;
     }
 
     @Override
@@ -329,9 +322,13 @@ public class ClassInfo extends ClassNameAndSuperclassInfo implements XClass {
     public XMethod findMethod(String methodName, String methodSig, boolean isStatic) {
         int hash = FieldOrMethodDescriptor.getNameSigHashCode(methodName, methodSig);
         for (MethodInfo mInfo : xMethods) {
-            if (mInfo.getNameSigHashCode() == hash && mInfo.getName().equals(methodName)
-                    && mInfo.getSignature().equals(methodSig) && mInfo.isStatic() == isStatic) {
-                return mInfo;
+            if (mInfo.getName().equals(methodName) && mInfo.isStatic() == isStatic) {
+                if (mInfo.getNameSigHashCode() == hash && mInfo.getSignature().equals(methodSig)) {
+                    return mInfo;
+                } else if (mInfo.hasPolymorphicSignature()) {
+                    Map<String, MethodInfo> methods = polymorphicMethods.computeIfAbsent(methodName, n -> new HashMap<>());
+                    return methods.computeIfAbsent(methodSig, s -> mInfo.withSignature(s));
+                }
             }
         }
         return null;
@@ -392,7 +389,7 @@ public class ClassInfo extends ClassNameAndSuperclassInfo implements XClass {
 
     @Override
     public String getPackageName() {
-        String dottedClassName = getClassDescriptor().toDottedClassName();
+        String dottedClassName = getClassDescriptor().getDottedClassName();
         int lastDot = dottedClassName.lastIndexOf('.');
         if (lastDot < 0) {
             return "";
@@ -455,12 +452,12 @@ public class ClassInfo extends ClassNameAndSuperclassInfo implements XClass {
     }
 
     @Override
-    public @CheckForNull String getSource() {
+    public @Nullable String getSource() {
         return source;
     }
 
     @Override
-    public @CheckForNull AnnotatedObject getContainingScope() {
+    public @Nullable AnnotatedObject getContainingScope() {
         if (!containingScopeCached) {
             containingScope = getContainingScope0();
             containingScopeCached = true;
@@ -468,7 +465,7 @@ public class ClassInfo extends ClassNameAndSuperclassInfo implements XClass {
         return containingScope;
     }
 
-    public @CheckForNull AnnotatedObject getContainingScope0() {
+    public @Nullable AnnotatedObject getContainingScope0() {
         try {
             if (immediateEnclosingClass != null) {
                 return Global.getAnalysisCache().getClassAnalysis(XClass.class, getImmediateEnclosingClass());

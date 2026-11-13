@@ -21,16 +21,16 @@ package edu.umd.cs.findbugs.visitclass;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.annotation.CheckForNull;
-
 import org.apache.bcel.classfile.AnnotationEntry;
 import org.apache.bcel.classfile.Annotations;
 import org.apache.bcel.classfile.ArrayElementValue;
 import org.apache.bcel.classfile.ElementValue;
 import org.apache.bcel.classfile.ElementValuePair;
+import org.apache.bcel.classfile.EnumElementValue;
 import org.apache.bcel.classfile.ParameterAnnotationEntry;
 import org.apache.bcel.classfile.ParameterAnnotations;
 import org.apache.bcel.classfile.SimpleElementValue;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.SystemProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -81,9 +81,8 @@ public class AnnotationVisitor extends PreorderVisitor {
         }
     }
 
-    @CheckForNull
     @SuppressFBWarnings("PZLA_PREFER_ZERO_LENGTH_ARRAYS")
-    protected static String[] getAnnotationParameterAsStringArray(Map<String, ElementValue> map, String parameter) {
+    protected static String @Nullable [] getAnnotationParameterAsStringArray(Map<String, ElementValue> map, String parameter) {
         try {
             ElementValue e = map.get(parameter);
             ArrayElementValue a = (ArrayElementValue) e;
@@ -97,6 +96,18 @@ public class AnnotationVisitor extends PreorderVisitor {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    protected static <E extends Enum<E>> @Nullable E getAnnotationParameterAsEnum(Map<String, ElementValue> map, String parameter, Class<E> type) {
+        ElementValue ev = map.get(parameter);
+
+        if (ev instanceof EnumElementValue) {
+            String enumValueString = ((EnumElementValue) ev).getEnumValueString();
+
+            return Enum.valueOf(type, enumValueString);
+        }
+
+        return null;
     }
 
     /**
@@ -265,11 +276,10 @@ public class AnnotationVisitor extends PreorderVisitor {
             for (AnnotationEntry ae : e.getAnnotationEntries()) {
                 boolean runtimeVisible = ae.isRuntimeVisible();
 
-                String name = ClassName.fromFieldSignature(ae.getAnnotationType());
+                String name = ClassName.fromFieldSignatureToDottedClassName(ae.getAnnotationType());
                 if (name == null) {
                     continue;
                 }
-                name = ClassName.toDottedClassName(name);
                 Map<String, ElementValue> map = new HashMap<>();
                 for (ElementValuePair ev : ae.getElementValuePairs()) {
                     map.put(ev.getNameString(), ev.getValue());
@@ -291,11 +301,10 @@ public class AnnotationVisitor extends PreorderVisitor {
     public void visitAnnotation(Annotations arg0) {
         for (AnnotationEntry ae : arg0.getAnnotationEntries()) {
             boolean runtimeVisible = ae.isRuntimeVisible();
-            String name = ClassName.fromFieldSignature(ae.getAnnotationType());
+            String name = ClassName.fromFieldSignatureToDottedClassName(ae.getAnnotationType());
             if (name == null) {
                 continue;
             }
-            name = ClassName.toDottedClassName(name);
             Map<String, ElementValue> map = new HashMap<>();
             for (ElementValuePair ev : ae.getElementValuePairs()) {
                 map.put(ev.getNameString(), ev.getValue());

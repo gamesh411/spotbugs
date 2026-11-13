@@ -22,14 +22,13 @@ package edu.umd.cs.findbugs.classfile.impl;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
-import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Collections;
 import java.util.HashMap;
@@ -39,9 +38,10 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Stream;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.classfile.ClassDescriptor;
 import edu.umd.cs.findbugs.classfile.DescriptorFactory;
@@ -50,6 +50,7 @@ import edu.umd.cs.findbugs.classfile.ICodeBaseIterator;
 import edu.umd.cs.findbugs.classfile.ICodeBaseLocator;
 import edu.umd.cs.findbugs.classfile.InvalidClassFileFormatException;
 import edu.umd.cs.findbugs.classfile.ResourceNotFoundException;
+import edu.umd.cs.findbugs.util.ClassName;
 
 /**
  *
@@ -57,7 +58,7 @@ import edu.umd.cs.findbugs.classfile.ResourceNotFoundException;
  *
  * @author andrey
  */
-public class JrtfsCodeBase extends AbstractScannableCodeBase {
+public final class JrtfsCodeBase extends AbstractScannableCodeBase {
     private static final int PRIME = 31;
 
     private FileSystem fs;
@@ -72,53 +73,116 @@ public class JrtfsCodeBase extends AbstractScannableCodeBase {
      */
     private Map<String, Object> packageToModuleMap;
 
-    public JrtfsCodeBase(ICodeBaseLocator codeBaseLocator, @Nonnull String fileName) {
+    public JrtfsCodeBase(ICodeBaseLocator codeBaseLocator, @NonNull String fileName) throws IOException {
         super(codeBaseLocator);
         this.fileName = fileName;
-        URL url;
+
+        FileSystem newFs = null;
         try {
-            url = Paths.get(fileName).toUri().toURL();
-            URLClassLoader loader = new URLClassLoader(new URL[] { url });
-            fs = FileSystems.newFileSystem(URI.create("jrt:/"), Collections.emptyMap(), loader);
-            root = fs.getPath("modules");
-            packageToModuleMap = createPackageToModuleMap(fs);
-        } catch (IOException e) {
-            e.printStackTrace();
+            newFs = openJrtFileSystem(fileName);
+            root = newFs.getPath("modules");
+            packageToModuleMap = createPackageToModuleMap(newFs);
+            fs = newFs;
+        } catch (IOException | UncheckedIOException e) {
+            if (newFs != null) {
+                try {
+                    newFs.close();
+                } catch (IOException closeException) {
+                    e.addSuppressed(closeException);
+                }
+
+                ClassLoader classLoader = newFs.getClass().getClassLoader();
+                if (classLoader instanceof URLClassLoader) {
+                    try {
+                        ((URLClassLoader) classLoader).close();
+                    } catch (IOException closeException) {
+                        e.addSuppressed(closeException);
+                    }
+                }
+            }
+
+            IOException cause = e instanceof UncheckedIOException
+                    ? ((UncheckedIOException) e).getCause()
+                    : (IOException) e;
+            throw new IOException("Could not initialize jrt-fs for " + fileName, cause);
         }
+    }
+
+    /**
+     * Opens the module image of the JDK the given {@code jrt-fs.jar} belongs to, which is not
+     * necessarily the JDK running SpotBugs.
+     * <p>
+     * Selecting a foreign image requires the {@code java.home} environment entry used by
+     * {@code jdk.internal.jrtfs.JrtFileSystemProvider}. Without it, the {@code jrt} provider
+     * installed in the running JVM answers the request with the running JVM's own image.
+     * <p>
+     * Passing a class loader over the given {@code jrt-fs.jar} does not help: since Java 9,
+     * {@code java.base} installs a provider for the {@code jrt} scheme, and
+     * {@link FileSystems#newFileSystem(URI, Map, ClassLoader)} falls back to the loader only when
+     * no installed provider matches the scheme.
+     *
+     * @param jrtFsJar
+     *            path of a {@code jrt-fs.jar}, usually {@code <javaHome>/lib/jrt-fs.jar}
+     * @return file system for the module image of that JDK, or of the running JVM if the jar is
+     *         not in the layout expected by the provider
+     */
+    private static FileSystem openJrtFileSystem(String jrtFsJar) throws IOException {
+        Path javaHome = javaHomeOf(jrtFsJar);
+        if (javaHome == null) {
+            return FileSystems.newFileSystem(URI.create("jrt:/"), Collections.emptyMap());
+        }
+        return FileSystems.newFileSystem(URI.create("jrt:/"), Map.of("java.home", javaHome.toString()));
+    }
+
+    /**
+     * Maps {@code <javaHome>/lib/jrt-fs.jar} back to {@code <javaHome>}.
+     *
+     * @return the JDK home owning the given jar, or {@code null} if the jar is not in the layout
+     *         expected by the {@code jrt} file system provider
+     */
+    @Nullable
+    private static Path javaHomeOf(String jrtFsJar) {
+        Path lib = Path.of(jrtFsJar).toAbsolutePath().getParent();
+        Path javaHome = lib == null ? null : lib.getParent();
+        if (javaHome == null || !Files.isRegularFile(javaHome.resolve("lib").resolve("jrt-fs.jar"))) {
+            return null;
+        }
+        return javaHome;
     }
 
     public Map<String, Object> createPackageToModuleMap(FileSystem fs) throws IOException {
         HashMap<String, Object> packageToModule = new LinkedHashMap<>();
         Path path = fs.getPath("packages");
-        Files.list(path).forEach(p -> {
-            try {
-                Iterator<Path> modIter = Files.list(p).iterator();
-                while (modIter.hasNext()) {
-                    Path module = modIter.next();
-                    String packageKey = fileName(p).replace('.', '/');
-                    String modulePath = fileName(module);
-                    if (!modIter.hasNext() && !packageToModule.containsKey(packageKey)) {
-                        packageToModule.put(packageKey, modulePath);
-                    } else {
-                        @SuppressWarnings("unchecked")
-                        Set<Object> modules = (Set<Object>) packageToModule.get(packageKey);
-                        if (modules == null) {
-                            modules = new LinkedHashSet<>();
-                            packageToModule.put(packageKey, modules);
+        try (Stream<Path> packList = Files.list(path)) {
+            packList.forEach(p -> {
+                try (Stream<Path> pList = Files.list(p)) {
+                    Iterator<Path> modIter = pList.iterator();
+                    while (modIter.hasNext()) {
+                        Path module = modIter.next();
+                        String packageKey = ClassName.toSlashedClassName(fileName(p));
+                        String modulePath = fileName(module);
+                        if (!modIter.hasNext() && !packageToModule.containsKey(packageKey)) {
+                            packageToModule.put(packageKey, modulePath);
+                        } else {
+                            @SuppressWarnings("unchecked")
+                            Set<Object> modules = (Set<Object>) packageToModule.get(packageKey);
+                            if (modules == null) {
+                                modules = new LinkedHashSet<>();
+                                packageToModule.put(packageKey, modules);
+                            }
+                            modules.add(modulePath);
                         }
-                        modules.add(modulePath);
                     }
+                } catch (IOException e) {
+                    throw new UncheckedIOException("Could not read packages/modules in jrt-fs for " + fileName, e);
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        });
+            });
+        }
         return packageToModule;
     }
 
     @Override
-    @CheckForNull
-    public ICodeBaseEntry lookupResource(String resourceName) {
+    public @Nullable ICodeBaseEntry lookupResource(String resourceName) {
         resourceName = translateResourceName(resourceName);
         String packageName = getPackage(resourceName);
         Object moduleNameOrSet = packageToModuleMap.get(packageName);
@@ -140,8 +204,7 @@ public class JrtfsCodeBase extends AbstractScannableCodeBase {
         return null;
     }
 
-    @CheckForNull
-    private ICodeBaseEntry createEntry(String resourceName, String moduleName) {
+    private @Nullable ICodeBaseEntry createEntry(String resourceName, String moduleName) {
         Path resolved = root.resolve(moduleName + "/" + resourceName);
         if (Files.exists(resolved)) {
             return new JrtfsCodebaseEntry(resolved, root, this);
@@ -195,7 +258,17 @@ public class JrtfsCodeBase extends AbstractScannableCodeBase {
     public void close() {
         if (fs != null) {
             try {
-                fs.close();
+                try {
+                    fs.close();
+                } finally {
+                    // when the jrt-fs.jar location has been provided,
+                    // JrtFileSystemProvider created an own URLClassloader,
+                    // which also needs to be closed to free the jrt-fs.jar
+                    ClassLoader classLoader = fs.getClass().getClassLoader();
+                    if (classLoader instanceof URLClassLoader) {
+                        ((URLClassLoader) classLoader).close();
+                    }
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -207,8 +280,7 @@ public class JrtfsCodeBase extends AbstractScannableCodeBase {
         return new JrtfsCodeBaseIterator();
     }
 
-    @Nonnull
-    static String fileName(Path p) {
+    static @NonNull String fileName(Path p) {
         Path name = p.getFileName();
         return name != null ? name.toString() : "";
     }

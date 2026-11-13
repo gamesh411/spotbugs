@@ -29,14 +29,14 @@ import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Set;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
 import javax.annotation.meta.TypeQualifierValidator;
 import javax.annotation.meta.When;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
 import edu.umd.cs.findbugs.SystemProperties;
 import edu.umd.cs.findbugs.ba.AnalysisContext;
-import edu.umd.cs.findbugs.ba.MissingClassException;
 import edu.umd.cs.findbugs.ba.XClass;
 import edu.umd.cs.findbugs.ba.XMethod;
 import edu.umd.cs.findbugs.classfile.CheckedAnalysisException;
@@ -73,7 +73,7 @@ public class TypeQualifierValue<A extends Annotation> {
 
     public final A proxy;
 
-    public final @CheckForNull Object value;
+    public final @Nullable Object value;
 
     private final boolean isStrict;
 
@@ -81,11 +81,11 @@ public class TypeQualifierValue<A extends Annotation> {
 
     private final boolean isExhaustive;
 
-    private final @CheckForNull TypeQualifierValidator<A> validator;
+    private final @Nullable TypeQualifierValidator<A> validator;
 
 
 
-    private TypeQualifierValue(ClassDescriptor typeQualifier, @CheckForNull Object value) {
+    private TypeQualifierValue(ClassDescriptor typeQualifier, @Nullable Object value) {
         this.typeQualifier = typeQualifier;
         this.value = value;
         /**  will be set to true if this is a strict type qualifier value */
@@ -124,11 +124,10 @@ public class TypeQualifierValue<A extends Annotation> {
                     break;
                 }
             }
-        } catch (MissingClassException e) {
-            AnalysisContext.currentAnalysisContext().getLookupFailureCallback().reportMissingClass(e.getClassNotFoundException());
         } catch (CheckedAnalysisException e) {
-            AnalysisContext.logError("Error looking up annotation class " + typeQualifier.toDottedClassName(), e);
+            AnalysisContext.currentAnalysisContext().getLookupFailureCallback().reportMissingClass(typeQualifier, e);
         }
+
         this.isStrict = isStrict1;
         this.isExclusive = isExclusive1;
         this.isExhaustive = isExhaustive1;
@@ -140,22 +139,13 @@ public class TypeQualifierValue<A extends Annotation> {
             if (!SystemProperties.RUNNING_AS_IDE_PLUGIN) {
                 /* don't do this if running in Eclipse; check below is the quick
                    fix for bug 3599258 (Random obscure Eclipse failures during analysis)
-                   
+                
                    Also don't do this if running in IntelliJ IDEA. This causes weird issues
-                   either (see IDEA-230268) 
+                   either (see IDEA-230268)
                  */
 
                 try {
                     Global.getAnalysisCache().getClassAnalysis(ClassData.class, checkerName);
-
-                    // found it.
-                    SecurityManager m = System.getSecurityManager();
-                    if (m == null) {
-                        if (DEBUG_CLASSLOADING) {
-                            System.out.println("Setting ValidationSecurityManager");
-                        }
-                        System.setSecurityManager(ValidationSecurityManager.INSTANCE);
-                    }
 
                     Class<?> c = ValidatorClassLoader.INSTANCE.loadClass(checkerName.getDottedClassName());
                     if (TypeQualifierValidator.class.isAssignableFrom(c)) {
@@ -177,23 +167,13 @@ public class TypeQualifierValue<A extends Annotation> {
                                 new Class[] { qualifierClass }, handler));
                     }
 
-                } catch (ClassNotFoundException e) {
-                    assert true; // ignore
-                } catch (CheckedAnalysisException e) {
+                } catch (ClassNotFoundException | CheckedAnalysisException e) {
                     assert true; // ignore
                 } catch (Exception e) {
                     AnalysisContext.logError("Unable to construct type qualifier checker " + checkerName, e);
                 } catch (Throwable e) {
                     AnalysisContext.logError("Unable to construct type qualifier checker " + checkerName + " due to "
                             + e.getClass().getSimpleName() + ":" + e.getMessage());
-                }
-            } else if (DEBUG_CLASSLOADING) {
-                SecurityManager m = System.getSecurityManager();
-                if (m == null) {
-                    if (DEBUG_CLASSLOADING) {
-                        System.out.println("Setting ValidationSecurityManager");
-                    }
-                    System.setSecurityManager(ValidationSecurityManager.INSTANCE);
                 }
             }
         }
@@ -215,7 +195,7 @@ public class TypeQualifierValue<A extends Annotation> {
         if (DEBUG_CLASSLOADING) {
             System.out.println("Getting qualifier class for " + className);
         }
-        if (className.startsWith("javax.annotation")) {
+        if (className.startsWith("javax.annotation") || className.startsWith("jakarta.annotation")) {
             return (Class<A>) Class.forName(className);
         }
         try {
@@ -257,11 +237,11 @@ public class TypeQualifierValue<A extends Annotation> {
         instance.remove();
     }
 
-    public boolean canValidate(@CheckForNull Object constantValue) {
+    public boolean canValidate(@Nullable Object constantValue) {
         return validator != null;
     }
 
-    public When validate(@CheckForNull Object constantValue) {
+    public When validate(@Nullable Object constantValue) {
         if (validator == null) {
             throw new IllegalStateException("No validator");
         }
@@ -269,7 +249,7 @@ public class TypeQualifierValue<A extends Annotation> {
         Profiler profiler = analysisCache.getProfiler();
         profiler.start(validator.getClass());
         try {
-            return ValidationSecurityManager.sandboxedValidation(proxy, validator, constantValue);
+            return validator.forConstantValue(proxy, constantValue);
         } catch (Exception e) {
             AnalysisContext.logError("Error executing custom validator for " + typeQualifier + " " + constantValue, e);
             return When.UNKNOWN;
@@ -289,7 +269,7 @@ public class TypeQualifierValue<A extends Annotation> {
      * @return an interned TypeQualifierValue object
      */
     @SuppressWarnings("rawtypes")
-    public static @Nonnull TypeQualifierValue<?> getValue(ClassDescriptor desc, @CheckForNull Object value) {
+    public static @NonNull TypeQualifierValue<?> getValue(ClassDescriptor desc, @Nullable Object value) {
         DualKeyHashMap<ClassDescriptor, Object, TypeQualifierValue<?>> map = instance.get().typeQualifierMap;
         TypeQualifierValue<?> result = map.get(desc, value);
         if (result != null) {
@@ -302,7 +282,7 @@ public class TypeQualifierValue<A extends Annotation> {
     }
 
     @SuppressWarnings("unchecked")
-    public static @Nonnull <A extends Annotation> TypeQualifierValue<A> getValue(Class<A> clazz, @CheckForNull Object value) {
+    public static @NonNull <A extends Annotation> TypeQualifierValue<A> getValue(Class<A> clazz, @Nullable Object value) {
         return (TypeQualifierValue<A>) getValue(DescriptorFactory.createClassDescriptor(clazz), value);
     }
 

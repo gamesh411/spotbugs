@@ -31,6 +31,7 @@ import java.io.Writer;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -43,7 +44,6 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.annotation.CheckForNull;
 import javax.annotation.WillClose;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerException;
@@ -51,12 +51,15 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
+import org.jspecify.annotations.Nullable;
+
 import edu.umd.cs.findbugs.PackageStats.ClassStats;
 import edu.umd.cs.findbugs.internalAnnotations.DottedClassName;
 import edu.umd.cs.findbugs.log.Profiler;
 import edu.umd.cs.findbugs.workflow.FileBugHash;
 import edu.umd.cs.findbugs.xml.OutputStreamXMLOutput;
 import edu.umd.cs.findbugs.xml.XMLOutput;
+import edu.umd.cs.findbugs.xml.XMLUtil;
 import edu.umd.cs.findbugs.xml.XMLWriteable;
 
 /**
@@ -200,7 +203,7 @@ public class ProjectStats implements XMLWriteable, Cloneable {
      *            a normalized class size value; see
      *            detect/FindBugsSummaryStats.
      */
-    public void addClass(@DottedClassName String className, @CheckForNull String sourceFile, boolean isInterface, int size) {
+    public void addClass(@DottedClassName String className, @Nullable String sourceFile, boolean isInterface, int size) {
         addClass(className, sourceFile, isInterface, size, true);
     }
 
@@ -218,7 +221,7 @@ public class ProjectStats implements XMLWriteable, Cloneable {
      *            detect/FindBugsSummaryStats.
      * @param updatePackageStats TODO
      */
-    public void addClass(@DottedClassName String className, @CheckForNull String sourceFile, boolean isInterface, int size,
+    public void addClass(@DottedClassName String className, @Nullable String sourceFile, boolean isInterface, int size,
             boolean updatePackageStats) {
         if (!hasClassStats) {
             // totalClasses/totalSize might be set from FindBugsSummary before when parsing XML: reset them
@@ -247,7 +250,7 @@ public class ProjectStats implements XMLWriteable, Cloneable {
      * @param className
      *            the full name of the class
      */
-    public @CheckForNull ClassStats getClassStats(@DottedClassName String className) {
+    public @Nullable ClassStats getClassStats(@DottedClassName String className) {
         if (hasClassStats) {
             return null;
         }
@@ -281,9 +284,7 @@ public class ProjectStats implements XMLWriteable, Cloneable {
      * Clear bug counts
      */
     public void clearBugCounts() {
-        for (int i = 0; i < totalErrors.length; i++) {
-            totalErrors[i] = 0;
-        }
+        Arrays.fill(totalErrors, 0);
         for (PackageStats stats : packageStatsMap.values()) {
             stats.clearBugCounts();
         }
@@ -351,9 +352,7 @@ public class ProjectStats implements XMLWriteable, Cloneable {
         if (!hasClassStats && !hasPackageStats) {
             return;
         }
-        for (int i = 0; i < totalErrors.length; i++) {
-            totalErrors[i] = 0;
-        }
+        Arrays.fill(totalErrors, 0);
         totalSize = 0;
         totalClasses = 0;
         totalSizeFromPackageStats = 0;
@@ -509,7 +508,7 @@ public class ProjectStats implements XMLWriteable, Cloneable {
         }
         StreamSource xsl = new StreamSource(xslInputStream);
 
-        TransformerFactory tf = TransformerFactory.newInstance("net.sf.saxon.TransformerFactoryImpl", null);
+        TransformerFactory tf = XMLUtil.buildTransformerFactory();
         Transformer transformer = tf.newTransformer(xsl);
         transformer.transform(in, out);
 
@@ -529,12 +528,7 @@ public class ProjectStats implements XMLWriteable, Cloneable {
     }
 
     private PackageStats getPackageStats(String packageName) {
-        PackageStats stat = packageStatsMap.get(packageName);
-        if (stat == null) {
-            stat = new PackageStats(packageName);
-            packageStatsMap.put(packageName, stat);
-        }
-        return stat;
+        return packageStatsMap.computeIfAbsent(packageName, PackageStats::new);
     }
 
     public void putPackageStats(String packageName, int numClasses, int size) {

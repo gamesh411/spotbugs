@@ -3,11 +3,11 @@ package sfBugsNew;
 import java.util.Collections;
 import java.util.List;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.NonNull;
 
 public class Bug1248 {
-    @Nonnull
-    private final List<Integer> foo = Collections.emptyList();
+
+    private final @NonNull List<Integer> foo = Collections.emptyList();
 
     public void test0() {
         if (foo != null) { // warning, good

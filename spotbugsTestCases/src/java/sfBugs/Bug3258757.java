@@ -1,7 +1,7 @@
 package sfBugs;
 
-import edu.umd.cs.findbugs.annotations.CheckForNull;
-import edu.umd.cs.findbugs.annotations.NonNull;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 public class Bug3258757 {
     public static void main(String[] args) {
@@ -17,7 +17,7 @@ public class Bug3258757 {
         useString(str);
     }
 
-    public static void other1(@CheckForNull String str) {
+    public static void other1(@Nullable String str) {
         if(System.currentTimeMillis() > 0) {
             // this does not complain
             useString(str);
@@ -26,12 +26,11 @@ public class Bug3258757 {
 
     // this complains:
     // H D NP: $L0 must be nonnull but is marked as nullable  At Demo.java:[lines 27-28]
-    public static void other2(@CheckForNull String str) {
+    public static void other2(@Nullable String str) {
         useString(str);
     }
 
-    @CheckForNull
-    public static String getString() {
+    public static @Nullable String getString() {
         return null;
     }
 

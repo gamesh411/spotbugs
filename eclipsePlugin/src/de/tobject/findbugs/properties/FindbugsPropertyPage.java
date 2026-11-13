@@ -25,9 +25,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ProjectScope;
 import org.eclipse.core.resources.ResourcesPlugin;
@@ -39,9 +36,7 @@ import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jface.dialogs.MessageDialogWithToggle;
 import org.eclipse.jface.preference.IPreferencePage;
 import org.eclipse.jface.viewers.ComboViewer;
-import org.eclipse.jface.viewers.ISelectionChangedListener;
 import org.eclipse.jface.viewers.IStructuredSelection;
-import org.eclipse.jface.viewers.SelectionChangedEvent;
 import org.eclipse.jface.viewers.StructuredSelection;
 import org.eclipse.jface.window.Window;
 import org.eclipse.swt.SWT;
@@ -61,6 +56,8 @@ import org.eclipse.ui.IWorkbenchPreferencePage;
 import org.eclipse.ui.dialogs.PreferencesUtil;
 import org.eclipse.ui.dialogs.PropertyPage;
 import org.eclipse.ui.preferences.ScopedPreferenceStore;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import de.tobject.findbugs.FindBugsJob;
 import de.tobject.findbugs.FindbugsPlugin;
@@ -135,8 +132,7 @@ public class FindbugsPropertyPage extends PropertyPage implements IWorkbenchPref
     private boolean projectPropsInitiallyEnabled;
 
     //  Nonnull if there is a current project
-    @Nullable
-    private ScopedPreferenceStore projectStore;
+    private @Nullable ScopedPreferenceStore projectStore;
 
     /** never null */
     private ScopedPreferenceStore workspaceStore;
@@ -160,7 +156,7 @@ public class FindbugsPropertyPage extends PropertyPage implements IWorkbenchPref
         // in our case this is a Java Project (IJavaProject).
         IAdaptable resource = getElement();
         if (resource != null) {
-            project = (IProject) resource.getAdapter(IProject.class);
+            project = resource.getAdapter(IProject.class);
         }
 
         initPreferencesStore(project);
@@ -180,7 +176,7 @@ public class FindbugsPropertyPage extends PropertyPage implements IWorkbenchPref
     }
 
     private void initPreferencesStore(IProject currProject) {
-        workspaceStore = new ScopedPreferenceStore(new InstanceScope(), FindbugsPlugin.PLUGIN_ID);
+        workspaceStore = new ScopedPreferenceStore(InstanceScope.INSTANCE, FindbugsPlugin.PLUGIN_ID);
         if (currProject != null) {
             projectStore = new ScopedPreferenceStore(new ProjectScope(currProject), FindbugsPlugin.PLUGIN_ID);
             projectPropsInitiallyEnabled = FindbugsPlugin.isProjectSettingsEnabled(currProject);
@@ -297,16 +293,13 @@ public class FindbugsPropertyPage extends PropertyPage implements IWorkbenchPref
         Label effortLabel = new Label(prioGroup, SWT.NULL);
         effortLabel.setText(getMessage("property.effort"));
         effortViewer = new ComboViewer(prioGroup, SWT.DROP_DOWN | SWT.READ_ONLY);
-        effortViewer.add(Effort.values());
+        effortViewer.add((Object[]) Effort.values());
 
         String effortLevel = currentUserPreferences.getEffort();
         effortViewer.setSelection(new StructuredSelection(Effort.getEffort(effortLevel)), true);
-        effortViewer.addSelectionChangedListener(new ISelectionChangedListener() {
-            @Override
-            public void selectionChanged(SelectionChangedEvent event) {
-                Effort placeHolder = (Effort) ((IStructuredSelection) event.getSelection()).getFirstElement();
-                currentUserPreferences.setEffort(placeHolder.getEffortLevel());
-            }
+        effortViewer.addSelectionChangedListener(event -> {
+            Effort placeHolder = (Effort) ((IStructuredSelection) event.getSelection()).getFirstElement();
+            currentUserPreferences.setEffort(placeHolder.getEffortLevel());
         });
         effortLabel.setToolTipText("Set SpotBugs analysis effort (minimal is faster but less precise)");
         effortViewer.getCombo().setToolTipText("Set SpotBugs analysis effort (minimal is faster but less precise)");
@@ -592,7 +585,7 @@ public class FindbugsPropertyPage extends PropertyPage implements IWorkbenchPref
      * Triggers FB analysis on given project
      * @param myProject opened project with FindBugs nature
      */
-    private static void runBuild(@Nonnull IProject myProject) {
+    private static void runBuild(@NonNull IProject myProject) {
         StructuredSelection selection = new StructuredSelection(myProject);
         FindBugsAction action = new FindBugsAction();
         action.selectionChanged(null, selection);

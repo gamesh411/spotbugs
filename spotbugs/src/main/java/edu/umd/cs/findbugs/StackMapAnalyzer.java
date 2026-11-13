@@ -25,8 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.annotation.CheckForNull;
-
 import org.apache.bcel.Const;
 import org.apache.bcel.classfile.Attribute;
 import org.apache.bcel.classfile.ClassFormatException;
@@ -37,6 +35,7 @@ import org.apache.bcel.classfile.StackMap;
 import org.apache.bcel.classfile.StackMapEntry;
 import org.apache.bcel.classfile.StackMapType;
 import org.apache.bcel.generic.Type;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.OpcodeStack.Item;
 import edu.umd.cs.findbugs.OpcodeStack.JumpInfo;
@@ -49,8 +48,6 @@ import edu.umd.cs.findbugs.classfile.MethodDescriptor;
  */
 public class StackMapAnalyzer {
 
-
-
     public static class StackMapAnalysisFactory extends edu.umd.cs.findbugs.classfile.engine.bcel.AnalysisFactory<JumpInfoFromStackMap> {
         public StackMapAnalysisFactory() {
             super("Jump info for opcode stack from stack map analysis", JumpInfoFromStackMap.class);
@@ -61,12 +58,10 @@ public class StackMapAnalyzer {
 
             return getFromStackMap(analysisCache, descriptor);
 
-
         }
     }
 
     static class JumpInfoFromStackMap extends JumpInfo {
-
 
         JumpInfoFromStackMap(Map<Integer, List<Item>> jumpEntries, Map<Integer, List<Item>> jumpStackEntries, BitSet jumpEntryLocations) {
             super(jumpEntries, jumpStackEntries, jumpEntryLocations);
@@ -102,7 +97,7 @@ public class StackMapAnalyzer {
         }
     }
 
-    static @CheckForNull StackMap getStackMapTable(Code code) {
+    static @Nullable StackMap getStackMapTable(Code code) {
         for (Attribute a : code.getAttributes()) {
             if (a instanceof StackMap) {
                 return (StackMap) a;
@@ -114,16 +109,13 @@ public class StackMapAnalyzer {
     static List<Item> getInitialLocals(MethodDescriptor descriptor) {
         List<Item> locals = new ArrayList<>();
         Type[] argTypes = Type.getArgumentTypes(descriptor.getSignature());
-        int reg = 0;
         if (!descriptor.isStatic()) {
             Item it = Item.typeOnly("L" + descriptor.getSlashedClassName() + ";");
             locals.add(it);
-            reg += it.getSize();
         }
         for (Type argType : argTypes) {
             Item it = Item.typeOnly(argType.getSignature());
             locals.add(it);
-            reg += it.getSize();
             if (it.usesTwoSlots()) {
                 locals.add(null);
             }
@@ -131,7 +123,7 @@ public class StackMapAnalyzer {
         return locals;
     }
 
-    static private @CheckForNull JumpInfoFromStackMap getFromStackMap(IAnalysisCache analysisCache, MethodDescriptor descriptor) {
+    private static @Nullable JumpInfoFromStackMap getFromStackMap(IAnalysisCache analysisCache, MethodDescriptor descriptor) {
         Method method;
         try {
             method = analysisCache.getMethodAnalysis(Method.class, descriptor);
@@ -220,7 +212,7 @@ public class StackMapAnalyzer {
 
     }
 
-    static private Item getItem(StackMapType t) {
+    private static Item getItem(StackMapType t) {
 
         switch (t.getType()) {
 
@@ -234,13 +226,12 @@ public class StackMapAnalyzer {
             return Item.typeOnly("J");
         case Const.ITEM_Bogus:
         case Const.ITEM_NewObject:
+        case Const.ITEM_InitObject:
             return Item.typeOnly("Ljava/lang/Object;");
         case Const.ITEM_Null:
             Item it = new Item();
             it.setSpecialKind(Item.TYPE_ONLY);
             return it;
-        case Const.ITEM_InitObject:
-            return Item.typeOnly("Ljava/lang/Object;");
         case Const.ITEM_Object:
             int index = t.getIndex();
             ConstantClass c = (ConstantClass) t.getConstantPool().getConstant(index);
@@ -255,7 +246,7 @@ public class StackMapAnalyzer {
         }
     }
 
-    static private void addLocals(List<Item> lst, StackMapType[] typesOfStackItems) {
+    private static void addLocals(List<Item> lst, StackMapType[] typesOfStackItems) {
         for (StackMapType t : typesOfStackItems) {
             Item item = getItem(t);
             lst.add(item);
@@ -266,7 +257,7 @@ public class StackMapAnalyzer {
 
     }
 
-    static private void addStack(List<Item> lst, StackMapType[] typesOfStackItems) {
+    private static void addStack(List<Item> lst, StackMapType[] typesOfStackItems) {
         for (StackMapType t : typesOfStackItems) {
             Item item = getItem(t);
             lst.add(item);

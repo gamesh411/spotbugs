@@ -24,16 +24,15 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.annotation.CheckForNull;
-
 import org.apache.bcel.Const;
+import org.jspecify.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 
 import edu.umd.cs.findbugs.ba.ComparableField;
-import edu.umd.cs.findbugs.ba.SignatureParser;
 import edu.umd.cs.findbugs.ba.XClass;
 import edu.umd.cs.findbugs.ba.XFactory;
 import edu.umd.cs.findbugs.ba.XField;
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 import edu.umd.cs.findbugs.ba.jsr305.TypeQualifierApplications;
 import edu.umd.cs.findbugs.classfile.CheckedAnalysisException;
 import edu.umd.cs.findbugs.classfile.ClassDescriptor;
@@ -53,10 +52,14 @@ public class FieldInfo extends FieldDescriptor implements XField {
 
     public static final FieldInfo[] EMPTY_ARRAY = new FieldInfo[0];
 
-    static public class Builder {
+    public static class Builder {
         final int accessFlags;
 
-        final String className, fieldName, fieldSignature;
+        final String className;
+
+        final String fieldName;
+
+        final String fieldSignature;
 
         String fieldSourceSignature;
 
@@ -85,7 +88,7 @@ public class FieldInfo extends FieldDescriptor implements XField {
 
     final int accessFlags;
 
-    final @CheckForNull String fieldSourceSignature;
+    final @Nullable String fieldSourceSignature;
 
     Map<ClassDescriptor, AnnotationValue> fieldAnnotations;
 
@@ -93,7 +96,7 @@ public class FieldInfo extends FieldDescriptor implements XField {
 
 
     private FieldInfo(@SlashedClassName String className, String fieldName, String fieldSignature,
-            @CheckForNull String fieldSourceSignature, int accessFlags, Map<ClassDescriptor, AnnotationValue> fieldAnnotations,
+            @Nullable String fieldSourceSignature, int accessFlags, Map<ClassDescriptor, AnnotationValue> fieldAnnotations,
             boolean isResolved) {
         super(className, fieldName, fieldSignature, (accessFlags & Const.ACC_STATIC) != 0);
         this.accessFlags = accessFlags | (fieldName.startsWith("this$") ? Const.ACC_FINAL : 0);
@@ -103,7 +106,7 @@ public class FieldInfo extends FieldDescriptor implements XField {
     }
 
     public int getNumParams() {
-        return new SignatureParser(getSignature()).getNumParameters();
+        return new GenericSignatureParser(getSignature()).getNumParameters();
     }
 
     private boolean checkFlag(int flag) {
@@ -125,7 +128,7 @@ public class FieldInfo extends FieldDescriptor implements XField {
 
     @Override
     public @DottedClassName String getClassName() {
-        return getClassDescriptor().toDottedClassName();
+        return getClassDescriptor().getDottedClassName();
     }
 
     @Override
@@ -309,7 +312,7 @@ public class FieldInfo extends FieldDescriptor implements XField {
                 // we don't know
                 // if it has a
                 // generic type
-                isStatic ? Const.ACC_STATIC : 0, new HashMap<ClassDescriptor, AnnotationValue>(), false);
+                isStatic ? Const.ACC_STATIC : 0, new HashMap<>(), false);
     }
 
     @Override
@@ -318,7 +321,7 @@ public class FieldInfo extends FieldDescriptor implements XField {
     }
 
     @Override
-    public @CheckForNull AnnotatedObject getContainingScope() {
+    public @Nullable AnnotatedObject getContainingScope() {
         try {
             return Global.getAnalysisCache().getClassAnalysis(XClass.class, getClassDescriptor());
         } catch (CheckedAnalysisException e) {

@@ -39,7 +39,7 @@ import edu.umd.cs.findbugs.log.Profiler;
  * @author pugh
  */
 public class TopologicalSort {
-    final static boolean DEBUG = SystemProperties.getBoolean("tsort.debug");
+    static final boolean DEBUG = SystemProperties.getBoolean("tsort.debug");
 
     public interface OutEdges<E> {
         Collection<E> getOutEdges(E e);
@@ -161,13 +161,15 @@ public class TopologicalSort {
 
         Set<E> consider = new HashSet<>();
 
-        MultiMap<E, E> iEdges, oEdges;
+        MultiMap<E, E> iEdges;
+
+        MultiMap<E, E> oEdges;
 
         private void removeVertex(E e) {
-            Collection<E> outEdges = oEdges.get(e);
+            Collection<E> outedges = oEdges.get(e);
 
             Collection<E> inEdges = iEdges.get(e);
-            for (E e2 : outEdges) {
+            for (E e2 : outedges) {
                 iEdges.remove(e2, e);
             }
             for (E e2 : inEdges) {
@@ -179,8 +181,8 @@ public class TopologicalSort {
 
         @Override
         public List<E> compute() {
-            ArrayList<E> doFirst = new ArrayList<>(consider.size());
-            ArrayList<E> doLast = new ArrayList<>(consider.size());
+            List<E> doFirst = new ArrayList<>(consider.size());
+            List<E> doLast = new ArrayList<>(consider.size());
 
             HashSet<E> remaining = new HashSet<>(consider);
             iEdges = new MultiMap<>(LinkedList.class);

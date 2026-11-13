@@ -19,8 +19,8 @@
 
 package edu.umd.cs.findbugs;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.ba.RepositoryLookupFailureCallback;
 import edu.umd.cs.findbugs.classfile.IClassObserver;
@@ -38,12 +38,12 @@ public interface BugReporter extends RepositoryLookupFailureCallback, IClassObse
     /**
      * Silent error-reporting verbosity level.
      */
-    public static final int SILENT = 0;
+    static final int SILENT = 0;
 
     /**
      * Normal error-reporting verbosity level.
      */
-    public static final int NORMAL = 1;
+    static final int NORMAL = 1;
 
     /**
      * Set the error-reporting verbosity level.
@@ -51,7 +51,7 @@ public interface BugReporter extends RepositoryLookupFailureCallback, IClassObse
      * @param level
      *            the verbosity level
      */
-    public void setErrorVerbosity(int level);
+    void setErrorVerbosity(int level);
 
     /**
      * Set the priority threshold.
@@ -60,7 +60,14 @@ public interface BugReporter extends RepositoryLookupFailureCallback, IClassObse
      *            bug instances must be at least as important as this priority
      *            to be reported
      */
-    public void setPriorityThreshold(int threshold);
+    void setPriorityThreshold(int threshold);
+
+    /**
+     * Set an optional priority adjuster.
+     *
+     * @param priorityAdjuster the priority adjuster
+     */
+    void setPriorityAdjuster(PriorityAdjuster priorityAdjuster);
 
     /**
      * Report a bug. The implementation may report the bug immediately, or queue
@@ -69,18 +76,18 @@ public interface BugReporter extends RepositoryLookupFailureCallback, IClassObse
      * @param bugInstance
      *            object describing the bug instance
      */
-    public void reportBug(@Nonnull BugInstance bugInstance);
+    void reportBug(@NonNull BugInstance bugInstance);
 
     /**
      * Finish reporting bugs. If any bug reports have been queued, calling this
      * method will flush them.
      */
-    public void finish();
+    void finish();
 
     /**
      * Report any accumulated error messages.
      */
-    public void reportQueuedErrors();
+    void reportQueuedErrors();
 
     /**
      * Add an observer.
@@ -88,16 +95,24 @@ public interface BugReporter extends RepositoryLookupFailureCallback, IClassObse
      * @param observer
      *            the observer
      */
-    public void addObserver(BugReporterObserver observer);
+    void addObserver(BugReporterObserver observer);
 
     /**
      * Get ProjectStats object used to store statistics about the overall
      * project being analyzed.
      */
-    public ProjectStats getProjectStats();
+    ProjectStats getProjectStats();
 
     /**
      * Get the bug collection (if any) associated with this bug reporter
      */
-    public @CheckForNull BugCollection getBugCollection();
+    @Nullable
+    BugCollection getBugCollection();
+
+    /**
+     * @return the PriorityAdjuster set for this BugReporter, or null if none was set
+     */
+    default @Nullable PriorityAdjuster getPriorityAdjuster() {
+        return null;
+    }
 }

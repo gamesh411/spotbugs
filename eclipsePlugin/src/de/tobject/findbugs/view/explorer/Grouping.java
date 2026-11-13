@@ -24,7 +24,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.StringTokenizer;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.NonNull;
 
 public class Grouping {
 
@@ -48,23 +48,19 @@ public class Grouping {
         return createFrom(order);
     }
 
-    @Nonnull
-    public static Grouping createFrom(List<GroupType> types) {
+    public static @NonNull Grouping createFrom(List<GroupType> types) {
         return new Grouping(types);
     }
 
-    @Nonnull
-    public List<GroupType> asList() {
+    public @NonNull List<GroupType> asList() {
         return new LinkedList<>(groupOrder);
     }
 
-    @Nonnull
-    public GroupType getFirstType() {
-        return groupOrder.size() > 0 ? groupOrder.getFirst() : GroupType.Undefined;
+    public @NonNull GroupType getFirstType() {
+        return groupOrder.isEmpty() ? GroupType.Undefined : groupOrder.getFirst();
     }
 
-    @Nonnull
-    public GroupType getChildType(GroupType parent) {
+    public @NonNull GroupType getChildType(GroupType parent) {
         if (parent == GroupType.Marker) {
             return parent;
         }
@@ -90,7 +86,7 @@ public class Grouping {
     }
 
     static Grouping restoreFrom(String saved) {
-        if (saved == null || saved.length() == 0) {
+        if (saved == null || saved.isEmpty()) {
             return createDefault();
         }
         StringTokenizer st = new StringTokenizer(saved, "[] ,", false);

@@ -45,11 +45,11 @@ import edu.umd.cs.findbugs.ba.AnalysisContext;
 import edu.umd.cs.findbugs.ba.CFG;
 import edu.umd.cs.findbugs.ba.ClassContext;
 import edu.umd.cs.findbugs.ba.Location;
-import edu.umd.cs.findbugs.ba.SignatureParser;
 import edu.umd.cs.findbugs.ba.XFactory;
 import edu.umd.cs.findbugs.ba.XMethod;
 import edu.umd.cs.findbugs.ba.deref.UnconditionalValueDerefDataflow;
 import edu.umd.cs.findbugs.ba.deref.UnconditionalValueDerefSet;
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 import edu.umd.cs.findbugs.ba.interproc.ParameterProperty;
 import edu.umd.cs.findbugs.ba.jsr305.TypeQualifierAnnotation;
 import edu.umd.cs.findbugs.ba.jsr305.TypeQualifierApplications;
@@ -70,9 +70,9 @@ public abstract class BuildUnconditionalParamDerefDatabase implements Detector {
 
     public final TypeQualifierValue<javax.annotation.Nonnull> nonnullTypeQualifierValue;
 
-    abstract protected void reportBug(BugInstance bug);
+    protected abstract void reportBug(BugInstance bug);
 
-    public BuildUnconditionalParamDerefDatabase() {
+    protected BuildUnconditionalParamDerefDatabase() {
         this.nonnullTypeQualifierValue = TypeQualifierValue.getValue(javax.annotation.Nonnull.class, null);
     }
 
@@ -97,6 +97,7 @@ public abstract class BuildUnconditionalParamDerefDatabase implements Detector {
         for (Type argument : method.getArgumentTypes()) {
             if (argument instanceof ReferenceType) {
                 hasReferenceParameters = true;
+                break;
             }
         }
 
@@ -117,7 +118,7 @@ public abstract class BuildUnconditionalParamDerefDatabase implements Detector {
             ValueNumberDataflow vnaDataflow = classContext.getValueNumberDataflow(method);
             UnconditionalValueDerefDataflow dataflow = classContext.getUnconditionalValueDerefDataflow(method);
 
-            SignatureParser parser = new SignatureParser(method.getSignature());
+            GenericSignatureParser parser = new GenericSignatureParser(method.getSignature());
             int paramLocalOffset = method.isStatic() ? 0 : 1;
 
             // Build BitSet of params that are unconditionally dereferenced
@@ -141,7 +142,7 @@ public abstract class BuildUnconditionalParamDerefDatabase implements Detector {
                         implicitNullCheckForEquals = true;
                         Code code = method.getCode();
                         ConstantPool cp = jclass.getConstantPool();
-                        byte codeBytes[] = code.getCode();
+                        byte[] codeBytes = code.getCode();
                         for (CodeException e : code.getExceptionTable()) {
                             ConstantClass cl = (ConstantClass) cp.getConstant(e.getCatchType());
                             int endPC = e.getEndPC();

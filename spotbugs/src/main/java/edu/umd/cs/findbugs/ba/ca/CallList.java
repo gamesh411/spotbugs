@@ -20,11 +20,14 @@ package edu.umd.cs.findbugs.ba.ca;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 public class CallList {
-    private boolean isTop, isBottom;
+    private boolean isTop;
 
-    private final ArrayList<Call> callList;
+    private boolean isBottom;
+
+    private final List<Call> callList;
 
     public CallList() {
         this.callList = new ArrayList<>();

@@ -24,7 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Iterator;
 
-import edu.umd.cs.findbugs.ba.SignatureParser;
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 import edu.umd.cs.findbugs.internalAnnotations.DottedClassName;
 
 /**
@@ -32,7 +32,7 @@ import edu.umd.cs.findbugs.internalAnnotations.DottedClassName;
  */
 public class Obfuscate {
 
-    final static String HASH_SEED = SystemProperties.getProperty("hashSeed", "");
+    static final String HASH_SEED = SystemProperties.getProperty("hashSeed", "");
 
     public static String hashData(String in) {
         MessageDigest md;
@@ -101,7 +101,7 @@ public class Obfuscate {
     }
 
     public static String hashMethodSignature(String signature) {
-        SignatureParser parser = new SignatureParser(signature);
+        GenericSignatureParser parser = new GenericSignatureParser(signature);
         StringBuilder buf = new StringBuilder("(");
         for (Iterator<String> i = parser.parameterSignatureIterator(); i.hasNext();) {
             String param = i.next();

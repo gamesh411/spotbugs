@@ -23,12 +23,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
 
 import org.apache.bcel.generic.ObjectType;
 import org.apache.bcel.generic.ReferenceType;
 import org.apache.bcel.generic.Type;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.ba.ObjectTypeFactory;
 import edu.umd.cs.findbugs.internalAnnotations.DottedClassName;
@@ -53,9 +53,9 @@ public class GenericObjectType extends ObjectType {
 
     final List<? extends ReferenceType> parameters;
 
-    final @CheckForNull String variable;
+    final @Nullable String variable;
 
-    final @CheckForNull ReferenceType extension;
+    final @Nullable ReferenceType extension;
 
     public ReferenceType produce() {
         return getTypeCategory().produce(this);
@@ -135,7 +135,7 @@ public class GenericObjectType extends ObjectType {
      *         isVariable() is falses
      */
     public boolean hasParameters() {
-        return parameters != null && parameters.size() > 0;
+        return parameters != null && !parameters.isEmpty();
     }
 
     /**
@@ -159,7 +159,7 @@ public class GenericObjectType extends ObjectType {
         }
     }
 
-    public @CheckForNull List<? extends ReferenceType> getParameters() {
+    public @Nullable List<? extends ReferenceType> getParameters() {
         if (parameters == null) {
             return null;
         }
@@ -175,7 +175,7 @@ public class GenericObjectType extends ObjectType {
      * @param variable
      *            the type variable e.g. <code>T</code>
      */
-    GenericObjectType(@Nonnull String variable) {
+    GenericObjectType(@NonNull String variable) {
         this(variable, (ReferenceType) null);
     }
 
@@ -183,7 +183,7 @@ public class GenericObjectType extends ObjectType {
      * Create a GenericObjectType that represents a Wildcard with extensions
      *
      */
-    GenericObjectType(@Nonnull String wildcard, @CheckForNull ReferenceType extension) {
+    GenericObjectType(@NonNull String wildcard, @Nullable ReferenceType extension) {
         super(Type.OBJECT.getClassName());
         this.variable = wildcard;
         this.extension = extension;
@@ -203,7 +203,7 @@ public class GenericObjectType extends ObjectType {
         super(class_name);
         variable = null;
         extension = null;
-        if (parameters == null || parameters.size() == 0) {
+        if (parameters == null || parameters.isEmpty()) {
             throw new IllegalStateException("argument 'parameters' must contain at least 1 parameter");
         }
         this.parameters = parameters;
@@ -213,13 +213,12 @@ public class GenericObjectType extends ObjectType {
      * @return the underlying ObjectType for this Generic Object
      */
     public ObjectType getObjectType() {
-        String cName = ClassName.fromFieldSignature(getSignature());
+        @DottedClassName
+        String cName = ClassName.fromFieldSignatureToDottedClassName(getSignature());
         if (cName == null) {
             throw new IllegalStateException("Can't provide ObjectType for " + this);
         }
-        @DottedClassName
-        String c = ClassName.toDottedClassName(cName);
-        return ObjectTypeFactory.getInstance(c);
+        return ObjectTypeFactory.getInstance(cName);
     }
 
     /**

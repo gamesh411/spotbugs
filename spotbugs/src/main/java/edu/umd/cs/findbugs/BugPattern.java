@@ -19,12 +19,12 @@
 
 package edu.umd.cs.findbugs;
 
-import javax.annotation.Nonnull;
-
-import edu.umd.cs.findbugs.util.HTML;
-
 import java.net.URI;
 import java.util.Optional;
+
+import org.jspecify.annotations.NonNull;
+
+import edu.umd.cs.findbugs.util.HTML;
 
 /**
  * A BugPattern object collects all of the metadata for a particular species of
@@ -36,25 +36,23 @@ import java.util.Optional;
  * @see BugInstance
  */
 public class BugPattern implements Comparable<BugPattern> {
-    final private String type;
+    private final String type;
 
-    final private String abbrev;
+    private final String abbrev;
 
-    final private String category;
+    private final String category;
 
-    final private boolean experimental;
+    private final boolean experimental;
 
-    final private String shortDescription;
+    private final String shortDescription;
 
-    final private String longDescription;
+    private final String longDescription;
 
-    final private String detailText;
+    private final String detailText;
 
-    final private String url;
+    private final String url;
 
     final int cweid;
-
-    int priorityAdjustment;
 
     private boolean deprecated;
 
@@ -72,12 +70,14 @@ public class BugPattern implements Comparable<BugPattern> {
      * @param shortDescription
      *            short one-line description of the bug species
      * @param longDescription
-     *            longer one-line description; may contain placeholders for use
-     *            by {@link FindBugsMessageFormat} to format BugAnnotations
+     *            longer one-line description; may contain placeholders for use by {@link FindBugsMessageFormat} to
+     *            format BugAnnotations
      * @param detailText
      *            HTML text containing a full description of the bug species
      * @param bugsUrl
      *            URL of web-page containing bug descriptions or null if there's no such page.
+     * @param cweid
+     *            Common Weakness Enumeration (CWE) ID of the bug pattern
      */
     public BugPattern(String type, String abbrev, String category, boolean experimental, String shortDescription,
             String longDescription, String detailText, String bugsUrl, int cweid) {
@@ -117,7 +117,7 @@ public class BugPattern implements Comparable<BugPattern> {
     /**
      * Get the BugCode
      */
-    public @Nonnull BugCode getBugCode() {
+    public @NonNull BugCode getBugCode() {
         return DetectorFactoryCollection.instance().getBugCode(abbrev);
 
     }
@@ -127,14 +127,6 @@ public class BugPattern implements Comparable<BugPattern> {
      */
     public String getCategory() {
         return category;
-    }
-
-    public int getPriorityAdjustment() {
-        return priorityAdjustment;
-    }
-
-    public void adjustPriority(int change) {
-        priorityAdjustment += change;
     }
 
     public String getCategoryAbbrev() {

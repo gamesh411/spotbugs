@@ -34,8 +34,6 @@ import java.util.Objects;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import javax.annotation.CheckForNull;
-
 import org.eclipse.core.runtime.Assert;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
@@ -56,6 +54,7 @@ import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.ClassAnnotation;
 import edu.umd.cs.findbugs.FieldAnnotation;
@@ -183,7 +182,7 @@ public class ASTUtil {
     }
 
     /**
-     * Searchs the first <CODE>ASTNode</CODE> between the specified
+     * Searches the first <CODE>ASTNode</CODE> between the specified
      * <CODE>startLine</CODE> and <CODE>endLine</CODE>. If the source line
      * doesn't contain an <CODE>ASTNode</CODE>, a
      * <CODE>ASTNodeNotFoundException</CODE> is thrown.
@@ -196,7 +195,7 @@ public class ASTUtil {
      * @param endLine
      *            the ending source line number.
      * @throws ASTNodeNotFoundException
-     *             if no <CODE>ASTNode</CODE> found between the specifed start
+     *             if no <CODE>ASTNode</CODE> found between the specified start
      *             and end line.
      */
     public static ASTNode getASTNode(CompilationUnit compilationUnit, int startLine, int endLine) throws ASTNodeNotFoundException {
@@ -403,8 +402,7 @@ public class ASTUtil {
         return statement;
     }
 
-    @CheckForNull
-    protected static ASTNode searchASTNode(CompilationUnit compilationUnit, int startLine, int endLine) {
+    protected static @Nullable ASTNode searchASTNode(CompilationUnit compilationUnit, int startLine, int endLine) {
         Assert.isNotNull(compilationUnit);
         isTrue(startLine <= endLine);
 
@@ -413,8 +411,7 @@ public class ASTUtil {
         return visitor.getASTNode();
     }
 
-    @CheckForNull
-    protected static TypeDeclaration searchTypeDeclaration(List<?> declarations, String typeName) {
+    protected static @Nullable TypeDeclaration searchTypeDeclaration(List<?> declarations, String typeName) {
         Assert.isNotNull(declarations);
         Assert.isNotNull(typeName);
 
@@ -441,8 +438,7 @@ public class ASTUtil {
         return null;
     }
 
-    @CheckForNull
-    protected static MethodDeclaration searchMethodDeclaration(AST ast, MethodDeclaration[] methods, String methodName,
+    protected static @Nullable MethodDeclaration searchMethodDeclaration(AST ast, MethodDeclaration[] methods, String methodName,
             String methodSignature) {
         Assert.isNotNull(methods);
         Assert.isNotNull(methodName);
@@ -461,8 +457,7 @@ public class ASTUtil {
         return null;
     }
 
-    @CheckForNull
-    protected static Statement searchStatement(CompilationUnit compilationUnit, List<?> statements, int startLine, int endLine) {
+    protected static @Nullable Statement searchStatement(CompilationUnit compilationUnit, List<?> statements, int startLine, int endLine) {
         Assert.isNotNull(compilationUnit);
         Assert.isNotNull(statements);
 

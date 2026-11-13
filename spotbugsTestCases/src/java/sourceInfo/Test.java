@@ -9,10 +9,10 @@ import java.io.Serializable;
 
 public class Test  implements Serializable {
 
+    private static final long serialVersionUID = 1L;
 
     /** This class is for testing the sourceInfo capabilities of FindBugs
      * @throws FileNotFoundException */
-
 
     public Test(File f) throws FileNotFoundException {
         is = new FileInputStream(f);
@@ -37,7 +37,7 @@ public class Test  implements Serializable {
     }
 
     @Override
-	public boolean equals(Object o) {
+    public boolean equals(Object o) {
         return this == o;
     }
 

@@ -3,8 +3,6 @@ package edu.umd.cs.findbugs.detect;
 import java.util.BitSet;
 import java.util.Iterator;
 
-import javax.annotation.CheckForNull;
-
 import org.apache.bcel.Const;
 import org.apache.bcel.classfile.Constant;
 import org.apache.bcel.classfile.ConstantCP;
@@ -21,6 +19,7 @@ import org.apache.bcel.generic.InvokeInstruction;
 import org.apache.bcel.generic.MethodGen;
 import org.apache.bcel.generic.ReferenceType;
 import org.apache.bcel.generic.Type;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.BugAccumulator;
 import edu.umd.cs.findbugs.BugInstance;
@@ -65,8 +64,9 @@ public class FindUseOfNonSerializableValue implements Detector {
                 String clazz = m.getClass(constantPool);
                 ConstantNameAndType nt = (ConstantNameAndType) constantPool.getConstant(m.getNameAndTypeIndex(), Const.CONSTANT_NameAndType);
                 String name = nt.getName(constantPool);
-                if ("setAttribute".equals(name) && "javax.servlet.http.HttpSession".equals(clazz) || ("writeObject".equals(name)
-                        && ("java.io.ObjectOutput".equals(clazz)
+                if ("setAttribute".equals(name) && ("javax.servlet.http.HttpSession".equals(clazz) || "jakarta.servlet.http.HttpSession".equals(
+                        clazz))
+                        || ("writeObject".equals(name) && ("java.io.ObjectOutput".equals(clazz)
                                 || "java.io.ObjectOutputStream".equals(clazz)))) {
                     if (DEBUG) {
                         System.out.println("Found call to " + clazz + "." + name);
@@ -107,7 +107,7 @@ public class FindUseOfNonSerializableValue implements Detector {
         STORE_INTO_HTTP_SESSION, PASSED_TO_WRITE_OBJECT, STORED_IN_SERIALZIED_FIELD
     }
 
-    @CheckForNull
+    @Nullable
     Use getUse(ConstantPoolGen cpg, Instruction ins) {
         if (ins instanceof InvokeInstruction) {
             InvokeInstruction invoke = (InvokeInstruction) ins;
@@ -115,7 +115,8 @@ public class FindUseOfNonSerializableValue implements Detector {
             String mName = invoke.getMethodName(cpg);
             String cName = invoke.getClassName(cpg);
 
-            if ("setAttribute".equals(mName) && "javax.servlet.http.HttpSession".equals(cName)) {
+            if ("setAttribute".equals(mName) && ("javax.servlet.http.HttpSession".equals(cName) || "jakarta.servlet.http.HttpSession".equals(
+                    cName))) {
                 return Use.STORE_INTO_HTTP_SESSION;
             }
             if ("writeObject".equals(mName)
@@ -211,7 +212,7 @@ public class FindUseOfNonSerializableValue implements Detector {
 
                     bugAccumulator.accumulateBug(new BugInstance(this, pattern,
                             isSerializable < 0.15 ? HIGH_PRIORITY : isSerializable > 0.5 ? LOW_PRIORITY : NORMAL_PRIORITY)
-                                    .addClassAndMethod(methodGen, sourceFile).addType(problem).describe(TypeAnnotation.FOUND_ROLE),
+                            .addClassAndMethod(methodGen, sourceFile).addType(problem).describe(TypeAnnotation.FOUND_ROLE),
                             sourceLineAnnotation);
 
                 }

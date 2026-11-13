@@ -1,9 +1,9 @@
 package edu.umd.cs.findbugs.sarif;
 
-import edu.umd.cs.findbugs.annotations.NonNull;
-
 import java.util.Objects;
 import java.util.function.BiFunction;
+
+import org.jspecify.annotations.NonNull;
 
 /**
  * Class to parse longDescription to generate formatted test for SARIF.
@@ -22,14 +22,14 @@ class MessageFormat {
         String pat = pattern;
         StringBuilder result = new StringBuilder();
 
-        while (pat.length() > 0) {
+        while (!pat.isEmpty()) {
             int subst = pat.indexOf('{');
             if (subst < 0) {
                 result.append(pat);
                 break;
             }
 
-            result.append(pat.substring(0, subst));
+            result.append(pat, 0, subst);
             pat = pat.substring(subst + 1);
 
             int end = pat.indexOf('}');

@@ -21,6 +21,7 @@ package edu.umd.cs.findbugs.graph;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 
 /**
@@ -117,9 +118,9 @@ public abstract class AbstractGraph<EdgeType extends AbstractEdge<EdgeType, Vert
      * ----------------------------------------------------------------------
      */
 
-    private final ArrayList<VertexType> vertexList;
+    private final List<VertexType> vertexList;
 
-    private final ArrayList<EdgeType> edgeList;
+    private final List<EdgeType> edgeList;
 
     private int maxVertexLabel;
 
@@ -132,7 +133,7 @@ public abstract class AbstractGraph<EdgeType extends AbstractEdge<EdgeType, Vert
      * ----------------------------------------------------------------------
      */
 
-    public AbstractGraph() {
+    protected AbstractGraph() {
         this.vertexList = new ArrayList<>();
         this.edgeList = new ArrayList<>();
         this.maxVertexLabel = 0;

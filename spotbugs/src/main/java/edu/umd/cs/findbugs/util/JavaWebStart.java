@@ -24,18 +24,18 @@ import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 
-import javax.annotation.CheckForNull;
 import javax.swing.JOptionPane;
 
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author pugh
  */
 public class JavaWebStart {
 
-    static final @CheckForNull Method jnlpShowDocumentMethod;
+    static final @Nullable Method jnlpShowDocumentMethod;
 
-    static final @CheckForNull Method jnlpGetCodeBaseMethod;
+    static final @Nullable Method jnlpGetCodeBaseMethod;
 
     static final Object jnlpBasicService; // will not be null if
     // jnlpShowMethod!=null
@@ -49,18 +49,12 @@ public class JavaWebStart {
         Object showObject = null;
         try {
             Class<?> serviceManagerClass = Class.forName("javax.jnlp.ServiceManager");
-            Method lookupMethod = serviceManagerClass.getMethod("lookup", new Class[] { String.class });
-            showObject = lookupMethod.invoke(null, new Object[] { "javax.jnlp.BasicService" });
-            showMethod = showObject.getClass().getMethod("showDocument", new Class[] { URL.class });
-            getCodeBase = showObject.getClass().getMethod("getCodeBase", new Class[] {});
+            Method lookupMethod = serviceManagerClass.getMethod("lookup", String.class);
+            showObject = lookupMethod.invoke(null, "javax.jnlp.BasicService");
+            showMethod = showObject.getClass().getMethod("showDocument", URL.class);
+            getCodeBase = showObject.getClass().getMethod("getCodeBase");
 
-        } catch (ClassNotFoundException e) {
-            assert true;
-        } catch (NoSuchMethodException e) {
-            assert true;
-        } catch (IllegalAccessException e) {
-            assert true;
-        } catch (InvocationTargetException e) {
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
             assert true;
         }
         jnlpShowDocumentMethod = showMethod;
@@ -80,8 +74,6 @@ public class JavaWebStart {
                 if (base != null) {
                     return new URL(base, s);
                 }
-            } catch (RuntimeException e) {
-                assert true;
             } catch (Exception e) {
                 assert true;
             }
@@ -111,9 +103,7 @@ public class JavaWebStart {
                 }
                 return success;
 
-            } catch (InvocationTargetException ite) {
-                assert true;
-            } catch (IllegalAccessException iae) {
+            } catch (InvocationTargetException | IllegalAccessException ite) {
                 assert true;
             }
         }

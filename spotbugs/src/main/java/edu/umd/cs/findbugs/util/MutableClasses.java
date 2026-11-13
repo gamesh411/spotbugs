@@ -1,13 +1,18 @@
 package edu.umd.cs.findbugs.util;
 
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import edu.umd.cs.findbugs.ba.XClass;
+import edu.umd.cs.findbugs.ba.XFactory;
+import edu.umd.cs.findbugs.ba.XMethod;
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
+import org.apache.bcel.Const;
 import org.apache.bcel.Repository;
 import org.apache.bcel.classfile.AnnotationEntry;
+import org.apache.bcel.classfile.ConstantPool;
 import org.apache.bcel.classfile.JavaClass;
 import org.apache.bcel.classfile.Method;
 
@@ -15,15 +20,23 @@ import edu.umd.cs.findbugs.ba.AnalysisContext;
 
 public class MutableClasses {
 
-    private static final Set<String> KNOWN_IMMUTABLE_CLASSES = new HashSet<>(Arrays.asList(
+    private static final Set<String> KNOWN_IMMUTABLE_CLASSES = Set.of(
             "java.lang.String", "java.lang.Integer", "java.lang.Byte", "java.lang.Character",
             "java.lang.Short", "java.lang.Boolean", "java.lang.Long", "java.lang.Double",
-            "java.lang.Float", "java.lang.StackTraceElement", "java.lang.Class", "java.math.BigInteger",
-            "java.math.Decimal", "java.io.File", "java.awt.Font", "java.awt.BasicStroke",
+            "java.lang.Float", "java.lang.StackTraceElement", "java.lang.Class", "java.lang.ClassLoader",
+            "java.io.File", "java.awt.Font", "java.awt.BasicStroke",
             "java.awt.Color", "java.awt.GradientPaint", "java.awt.LinearGradientPaint",
             "java.awt.RadialGradientPaint", "java.awt.Cursor", "java.util.Locale", "java.util.UUID", "java.net.URL",
             "java.net.URI", "java.net.Inet4Address", "java.net.Inet6Address", "java.net.InetSocketAddress",
-            "java.security.Permission", "com.google.common.collect.ImmutableBiMap",
+            "java.util.OptionalDouble", "java.util.OptionalInt", "java.util.OptionalLong",
+            "java.util.regex.Pattern", "java.nio.charset.Charset", "java.nio.file.Path",
+            "java.security.Permission",
+            "java.lang.module.Configuration",
+            "java.lang.module.ModuleDescriptor",
+            "java.lang.module.ModuleReference",
+            "java.lang.module.ResolvedModule",
+            "java.lang.Module", "java.lang.ModuleLayer",
+            "com.google.common.collect.ImmutableBiMap",
             "com.google.common.collect.ImmutableClassToInstanceMap",
             "com.google.common.collect.ImmutableCollection",
             "com.google.common.collect.ImmutableList",
@@ -38,10 +51,56 @@ public class MutableClasses {
             "com.google.common.collect.ImmutableSortedMap",
             "com.google.common.collect.ImmutableSortedMultiset",
             "com.google.common.collect.ImmutableSortedSet",
-            "com.google.common.collect.ImmutableTable"));
+            "com.google.common.collect.ImmutableTable",
+            "java.util.Collections$EmptyList",
+            "java.util.Collections$EmptyMap",
+            "java.util.Collections$UnmodifiableNavigableMap$EmptyNavigableMap",
+            "java.util.Collections$EmptySet",
+            "java.util.Collections$UnmodifiableNavigableSet$EmptyNavigableSet",
+            "java.util.Collections$SingletonList",
+            "java.util.Collections$SingletonMap",
+            "java.util.Collections$SingletonSet",
+            "java.util.Collections$UnmodifiableList",
+            "java.util.Collections$UnmodifiableMap",
+            "java.util.Collections$UnmodifiableNavigableMap",
+            "java.util.Collections$UnmodifiableSortedMap",
+            "java.util.Collections$UnmodifiableSet",
+            "java.util.Collections$UnmodifiableNavigableSet",
+            "java.util.Collections$UnmodifiableSortedSet",
+            "java.util.ImmutableCollections$AbstractImmutableList",
+            "java.util.ImmutableCollections$AbstractImmutableMap",
+            "java.util.ImmutableCollections$AbstractImmutableSet");
 
-    private static final Set<String> KNOWN_IMMUTABLE_PACKAGES = new HashSet<>(Arrays.asList(
-            "java.math", "java.time"));
+    private static final Set<String> KNOWN_IMMUTABLE_PACKAGES = Set.of(
+            "java.math", "java.time", "java.util.function", "java.lang.constant");
+
+    private static final Set<String> CONSTRUCTOR_LIKE_NAMES = Set.of(
+            Const.CONSTRUCTOR_NAME, Const.STATIC_INITIALIZER_NAME,
+            "clone", "init", "initialize", "dispose", "finalize", "this",
+            "_jspInit", "jspDestroy");
+
+    private static final List<String> SETTER_LIKE_PREFIXES = List.of(
+            "set", "put", "add", "insert", "delete", "remove", "erase", "clear", "push", "pop",
+            "enqueue", "dequeue", "write", "append", "replace");
+
+    private static final MethodChecker[] METHOD_CHECKERS = {
+        new MethodChecker("add"),
+        new MethodChecker("append"),
+        new MethodChecker("clear"),
+        new MethodChecker("delete"),
+        new MethodChecker("enqueue"),
+        new MethodChecker("erase"),
+        new MethodChecker("insert"),
+        new MethodChecker("pop"),
+        new MethodChecker("push"),
+        new MethodChecker("put"),
+        new MethodChecker("remove"),
+        new MethodChecker("replace"),
+        new MethodChecker("set"),
+        new MethodChecker("dequeue"),
+        new WriteMethodChecker()
+    };
+
 
     public static boolean mutableSignature(String sig) {
         if (sig.charAt(0) == '[') {
@@ -52,7 +111,7 @@ public class MutableClasses {
             return false;
         }
 
-        String dottedClassName = sig.substring(1, sig.length() - 1).replace('/', '.');
+        String dottedClassName = ClassName.fromFieldSignatureToDottedClassName(sig);
         int lastDot = dottedClassName.lastIndexOf('.');
 
         if (lastDot >= 0) {
@@ -73,6 +132,10 @@ public class MutableClasses {
                     .anyMatch(type -> type.endsWith("/Immutable;") || type.equals("Ljdk/internal/ValueBased;"))) {
                 return false;
             }
+            JavaClass ann = Repository.lookupClass("java.lang.annotation.Annotation");
+            if (cls.instanceOf(ann)) {
+                return false;
+            }
             return ClassAnalysis.load(cls, sig).isMutable();
         } catch (ClassNotFoundException e) {
             AnalysisContext.reportMissingClass(e);
@@ -81,12 +144,128 @@ public class MutableClasses {
     }
 
     /**
+     * Check if the method name looks like a constructor
+     *
+     * @param methodName
+     *            the method name
+     * @return true if the method name looks like a constructor
+     */
+    public static boolean isConstructorLikeMethod(String methodName) {
+        return CONSTRUCTOR_LIKE_NAMES.contains(methodName);
+    }
+
+    /**
+     * Check if the method name looks like a setter
+     *
+     * @param methodName
+     *            the method name
+     * @param classSig
+     *            the class signature
+     * @param retSig
+     *            the return type signature
+     * @return true if the method name looks like a setter
+     */
+    private static boolean looksLikeASetter(String methodName, String classSig, String retSig) {
+        if (Objects.equals(classSig, retSig)) {
+            return false;
+        }
+        return looksLikeASetter(methodName);
+    }
+
+    /**
+     * Check if the method name looks like a setter
+     *
+     * @param methodName
+     *            the method name
+     * @return true if the method name looks like a setter
+     */
+    public static boolean looksLikeASetter(String methodName) {
+        return SETTER_LIKE_PREFIXES.stream().anyMatch(methodName::startsWith);
+    }
+
+    public static boolean looksLikeASetter(XClass xClass, XMethod xmethod) {
+        return looksLikeASetter(xClass.getSourceSignature(), xmethod);
+    }
+
+    private static boolean looksLikeASetter(String classSig, String clsName, Method method) {
+        XMethod xMethod = XFactory.createXMethod(clsName, method);
+        if (xMethod.isResolved()) {
+            return MutableClasses.looksLikeASetter(classSig, xMethod);
+        } else {
+            if (method.getCode() != null && isSingleLineUnsupportedOperationThrower(method)) {
+                return false;
+            }
+            return MutableClasses.looksLikeASetter(method.getName(), classSig,
+                    new GenericSignatureParser(method.getSignature()).getReturnTypeSignature());
+        }
+    }
+
+    private static boolean looksLikeASetter(ClassAnalysis cls, String classSig, String clsName, Method method) {
+        if (looksLikeASetter(classSig, clsName, method)) {
+            for (MethodChecker checker : METHOD_CHECKERS) {
+                if (checker.isMutableMethod(cls, method)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isSingleLineUnsupportedOperationThrower(Method method) {
+        byte[] code = method.getCode().getCode();
+        if (code.length != 8 && code.length != 10) {
+            return false;
+        }
+
+        ConstantPool cp = method.getConstantPool();
+
+        if (Byte.toUnsignedInt(code[0]) != Const.NEW
+                || !equalsConstant(code[1], code[2], "java.lang.UnsupportedOperationException", cp)
+                || Byte.toUnsignedInt(code[3]) != Const.DUP) {
+            return false;
+        }
+
+        // Using java.lang.UnsupportedOperationException()
+        if (code.length == 8
+                && (Byte.toUnsignedInt(code[4]) != Const.INVOKESPECIAL
+                        || !equalsConstant(code[5], code[6],
+                                "java.lang.UnsupportedOperationException." + Const.CONSTRUCTOR_NAME + " ()V", cp)
+                        || Byte.toUnsignedInt(code[7]) != Const.ATHROW)) {
+            return false;
+        }
+
+        // Using java.lang.UnsupportedOperationException(java.lang.String)
+        if (code.length == 10
+                && (Byte.toUnsignedInt(code[4]) != Const.LDC
+                        || Byte.toUnsignedInt(code[6]) != Const.INVOKESPECIAL
+                        || !equalsConstant(code[7], code[8],
+                                "java.lang.UnsupportedOperationException." + Const.CONSTRUCTOR_NAME
+                                        + " (Ljava/lang/String;)V", cp)
+                        || Byte.toUnsignedInt(code[9]) != Const.ATHROW)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static boolean equalsConstant(byte high, byte low, String cnst, ConstantPool cp) {
+        return cnst.equals(cp.constantToString(cp.getConstant((high << 8) + Byte.toUnsignedInt(low))));
+    }
+
+    private static boolean looksLikeASetter(String classSig, XMethod xmethod) {
+        // If the method throws an UnsupportedOperationException then we ignore it.
+        if (xmethod.isUnsupported()) {
+            return false;
+        }
+
+        return MutableClasses.looksLikeASetter(xmethod.getName(), classSig,
+                new GenericSignatureParser(xmethod.getSignature()).getReturnTypeSignature());
+    }
+
+    /**
      * Analytic information about a {@link JavaClass} relevant to determining its mutability properties.
      */
     private static final class ClassAnalysis {
-        private static final List<String> SETTER_LIKE_PREFIXES = Arrays.asList(
-                "set", "put", "add", "insert", "delete", "remove", "erase", "clear", "push", "pop",
-                "enqueue", "dequeue", "write", "append", "replace");
 
         /**
          * Class under analysis.
@@ -101,6 +280,8 @@ public class MutableClasses {
         private String sig;
         private Boolean mutable;
         private Boolean immutableByContract;
+        private Boolean externalizable;
+        private Boolean serializable;
 
         private ClassAnalysis(JavaClass cls, String sig) {
             this.cls = cls;
@@ -125,8 +306,10 @@ public class MutableClasses {
                 return false;
             }
 
+            String className = cls.getClassName();
+
             for (Method method : cls.getMethods()) {
-                if (!method.isStatic() && looksLikeASetter(method)) {
+                if (!method.isStatic() && looksLikeASetter(className, method)) {
                     return true;
                 }
             }
@@ -135,22 +318,68 @@ public class MutableClasses {
             return maybeSuper != null && maybeSuper.isMutable();
         }
 
-        private boolean looksLikeASetter(Method method) {
-            final String methodName = method.getName();
-            for (String name : SETTER_LIKE_PREFIXES) {
-                if (methodName.startsWith(name)) {
-                    // If setter-like methods returns an object of the same type then we suppose that it
-                    // is not a setter but creates a new instance instead.
-                    return !getSig().equals(method.getReturnType().getSignature());
-                }
+        boolean isExternalizable() {
+            Boolean local = externalizable;
+            if (local == null) {
+                externalizable = local = computeExternalizable();
             }
-            return false;
+            return local;
         }
 
-        private String getSig() {
+        private boolean computeExternalizable() {
+            for (String iface : cls.getInterfaceNames()) {
+                if (iface.equals("java.io.Externalizable")) {
+                    return true;
+                }
+                try {
+                    if (load(Repository.lookupClass(iface), null).isExternalizable()) {
+                        return true;
+                    }
+                } catch (ClassNotFoundException e) {
+                    AnalysisContext.reportMissingClass(e);
+                }
+            }
+
+            final ClassAnalysis maybeSuper = getSuperAnalysis();
+            return maybeSuper != null && maybeSuper.isExternalizable();
+        }
+
+        boolean isSerializable() {
+            Boolean local = serializable;
+            if (local == null) {
+                // Externalizable implies Serializable
+                serializable = local = computeSerializable() || isExternalizable();
+            }
+            return local;
+        }
+
+        private boolean computeSerializable() {
+            for (String iface : cls.getInterfaceNames()) {
+                if (iface.equals("java.io.Serializable")) {
+                    return true;
+                }
+                try {
+                    if (load(Repository.lookupClass(iface), null).isSerializable()) {
+                        return true;
+                    }
+                } catch (ClassNotFoundException e) {
+                    AnalysisContext.reportMissingClass(e);
+                }
+            }
+
+            final ClassAnalysis maybeSuper = getSuperAnalysis();
+            return maybeSuper != null && maybeSuper.isSerializable();
+        }
+
+
+        private boolean looksLikeASetter(String clsName, Method method) {
+            return MutableClasses.looksLikeASetter(this, getSig(), clsName, method);
+        }
+
+        String getSig() {
             String local = sig;
             if (local == null) {
-                sig = local = "L" + cls.getClassName().replace('.', '/') + ";";
+                sig = local = "L" + ClassName.toSlashedClassName(cls.getClassName()) + ";";
             }
             return local;
         }
@@ -164,6 +393,14 @@ public class MutableClasses {
         }
 
         private boolean computeByImmutableContract() {
+            if ("java.lang.Enum".equals(cls.getClassName())) {
+                return true;
+            }
+
+            if ("java.lang.Record".equals(cls.getClassName())) {
+                return true;
+            }
+
             for (AnnotationEntry entry : cls.getAnnotationEntries()) {
                 // Error-Prone's @Immutable annotation is @Inherited, hence it applies to subclasses as well
                 if (entry.getAnnotationType().equals("Lcom/google/errorprone/annotations/Immutable;")) {
@@ -202,6 +439,49 @@ public class MutableClasses {
             }
 
             return load(superClass, null);
+        }
+    }
+
+    private static class MethodChecker {
+        private final String prefix;
+
+        MethodChecker(String prefix) {
+            this.prefix = prefix;
+        }
+
+        boolean isMutableMethod(ClassAnalysis cls, Method method) {
+            return method.getName().startsWith(prefix)
+                    // If setter-like methods returns an object of the same type then we suppose that it
+                    // is not a setter but creates a new instance instead.
+                    && !Objects.equals(cls.getSig(), method.getReturnType().getSignature());
+        }
+    }
+
+    private static final class WriteMethodChecker extends MethodChecker {
+        WriteMethodChecker() {
+            super("write");
+        }
+
+        @Override
+        boolean isMutableMethod(ClassAnalysis cls, Method method) {
+            if (!super.isMutableMethod(cls, method)) {
+                return false;
+            }
+
+            final String name = method.getName();
+            final String sig = method.getSignature();
+
+            // writeReplace() is a special case for java.io.Serializable contract
+            if (name.equals("writeReplace") && sig.equals("()Ljava/lang/Object;") && cls.isSerializable()) {
+                return false;
+            }
+            // writeExternal(ObjectOutput) is part of the java.io.Externalizable contract
+            if (name.equals("writeExternal") && method.isPublic()
+                    && sig.equals("(Ljava/io/ObjectOutput;)V") && cls.isExternalizable()) {
+                return false;
+            }
+
+            return true;
         }
     }
 }

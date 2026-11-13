@@ -3,15 +3,15 @@ package sfBugs;
 import java.util.HashMap;
 import java.util.Map;
 
-import edu.umd.cs.findbugs.annotations.CheckForNull;
+import org.jspecify.annotations.Nullable;
 
 public final class Bug3343304 {
     public static void parse() {
         new FindBugs().getResult();
     }
 
-    static private abstract class Abstract {
-        abstract protected void parseLine();
+    private static abstract class Abstract {
+        protected abstract void parseLine();
 
         public void getResult() {
             parseLine();
@@ -21,9 +21,8 @@ public final class Bug3343304 {
         }
     }
 
-    static private final class FindBugs extends Abstract {
-        private @CheckForNull
-        Map<Integer, String> metrics = null;
+    private static final class FindBugs extends Abstract {
+        private @Nullable Map<Integer, String> metrics = null;
 
         @Override
         protected void parseLine() {

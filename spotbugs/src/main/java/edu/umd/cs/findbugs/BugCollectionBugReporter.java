@@ -21,8 +21,8 @@ package edu.umd.cs.findbugs;
 
 import java.io.PrintWriter;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.ba.Debug;
 import edu.umd.cs.findbugs.ba.MethodUnprofitableException;
@@ -34,14 +34,13 @@ public class BugCollectionBugReporter extends TextUIBugReporter implements Debug
 
     private final Project project;
 
-    @CheckForNull
-    private final PrintWriter writer;
+    private final @Nullable PrintWriter writer;
 
     public BugCollectionBugReporter(Project project) {
         this(project, null);
     }
 
-    public BugCollectionBugReporter(Project project, @CheckForNull PrintWriter writer) {
+    public BugCollectionBugReporter(Project project, @Nullable PrintWriter writer) {
         this.project = project;
         this.bugCollection = new SortedBugCollection(getProjectStats(), project);
         bugCollection.setTimestamp(System.currentTimeMillis());
@@ -53,7 +52,7 @@ public class BugCollectionBugReporter extends TextUIBugReporter implements Debug
     }
 
     @Override
-    public @Nonnull BugCollection getBugCollection() {
+    public @NonNull BugCollection getBugCollection() {
         return bugCollection;
     }
 
@@ -90,6 +89,16 @@ public class BugCollectionBugReporter extends TextUIBugReporter implements Debug
         }
         bugCollection.addMissingClass(missing);
         super.reportMissingClass(ex);
+    }
+
+    @Override
+    public void reportMissingClass(ClassDescriptor classDescriptor) {
+        String missing = classDescriptor.getDottedClassName();
+        if (!isValidMissingClassMessage(missing)) {
+            return;
+        }
+        bugCollection.addMissingClass(missing);
+        super.reportMissingClass(classDescriptor);
     }
 
     @Override
@@ -138,7 +147,7 @@ public class BugCollectionBugReporter extends TextUIBugReporter implements Debug
             super.emitLine(line);
             return;
         }
-        line = line.replaceAll("\t", "  ");
+        line = line.replace("\t", "  ");
         writer.println(line);
     }
 

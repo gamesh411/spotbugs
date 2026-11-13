@@ -28,8 +28,6 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.annotation.CheckForNull;
-
 import org.apache.bcel.Const;
 import org.apache.bcel.Repository;
 import org.apache.bcel.classfile.Attribute;
@@ -38,6 +36,7 @@ import org.apache.bcel.classfile.Deprecated;
 import org.apache.bcel.classfile.Field;
 import org.apache.bcel.classfile.JavaClass;
 import org.apache.bcel.classfile.Method;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.BugInstance;
 import edu.umd.cs.findbugs.BugReporter;
@@ -47,10 +46,10 @@ import edu.umd.cs.findbugs.MethodAnnotation;
 import edu.umd.cs.findbugs.ba.AnalysisContext;
 import edu.umd.cs.findbugs.ba.ClassContext;
 import edu.umd.cs.findbugs.ba.Hierarchy2;
-import edu.umd.cs.findbugs.ba.SignatureParser;
 import edu.umd.cs.findbugs.ba.XClass;
 import edu.umd.cs.findbugs.ba.XFactory;
 import edu.umd.cs.findbugs.ba.XMethod;
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 import edu.umd.cs.findbugs.bcel.BCELUtil;
 import edu.umd.cs.findbugs.classfile.CheckedAnalysisException;
 import edu.umd.cs.findbugs.classfile.ClassDescriptor;
@@ -81,7 +80,7 @@ public class Naming extends PreorderVisitor implements Detector {
 
     boolean classIsPublicOrProtected;
 
-    public static @CheckForNull XMethod definedIn(JavaClass clazz, XMethod m) {
+    public static @Nullable XMethod definedIn(JavaClass clazz, XMethod m) {
         for (Method m2 : clazz.getMethods()) {
             if (m.getName().equals(m2.getName()) && m.getSignature().equals(m2.getSignature()) && m.isStatic() == m2.isStatic()) {
                 return XFactory.createXMethod(clazz, m2);
@@ -186,8 +185,8 @@ public class Naming extends PreorderVisitor implements Detector {
                             }
                             priority++;
                         }
-                        Iterator<String> s = new SignatureParser(m.getSignature()).parameterSignatureIterator();
-                        Iterator<String> s2 = new SignatureParser(m2.getSignature()).parameterSignatureIterator();
+                        Iterator<String> s = new GenericSignatureParser(m.getSignature()).parameterSignatureIterator();
+                        Iterator<String> s2 = new GenericSignatureParser(m2.getSignature()).parameterSignatureIterator();
                         while (s.hasNext()) {
                             String p = s.next();
                             String p2 = s2.next();
@@ -337,7 +336,7 @@ public class Naming extends PreorderVisitor implements Detector {
      *            class descriptor we want to check
      * @return true iff the descriptor ultimately inherits from Exception
      */
-    private static boolean mightInheritFromException(ClassDescriptor d) {
+    private boolean mightInheritFromException(ClassDescriptor d) {
         while (d != null) {
             try {
                 if ("java.lang.Exception".equals(d.getDottedClassName())) {
@@ -346,6 +345,7 @@ public class Naming extends PreorderVisitor implements Detector {
                 XClass classNameAndInfo = Global.getAnalysisCache().getClassAnalysis(XClass.class, d);
                 d = classNameAndInfo.getSuperclassDescriptor();
             } catch (CheckedAnalysisException e) {
+                bugReporter.reportMissingClass(d, e);
                 return true; // don't know
             }
         }
@@ -388,13 +388,13 @@ public class Naming extends PreorderVisitor implements Detector {
 
             bugReporter.reportBug(new BugInstance(this, "NM_CLASS_NAMING_CONVENTION", priority).addClass(this));
         }
-        if (name.endsWith("Exception")) {
-            // Does it ultimately inherit from Throwable?
-            if (!mightInheritFromException(DescriptorFactory.createClassDescriptor(obj))) {
-                // It doens't, so the name is misleading
-                bugReporter.reportBug(new BugInstance(this, "NM_CLASS_NOT_EXCEPTION", NORMAL_PRIORITY).addClass(this));
-            }
+        if (name.endsWith("Exception")
+                // Does it ultimately inherit from Throwable?
+                && !mightInheritFromException(DescriptorFactory.createClassDescriptor(obj))) {
+            // It doesn't, so the name is misleading
+            bugReporter.reportBug(new BugInstance(this, "NM_CLASS_NOT_EXCEPTION", NORMAL_PRIORITY).addClass(this));
         }
+
 
         int badFieldNames = 0;
         for (Field f : obj.getFields()) {
@@ -431,7 +431,7 @@ public class Naming extends PreorderVisitor implements Detector {
         if (badFieldName(obj)) {
             bugReporter.reportBug(new BugInstance(this, "NM_FIELD_NAMING_CONVENTION", classIsPublicOrProtected
                     && (obj.isPublic() || obj.isProtected()) && !hasBadFieldNames ? NORMAL_PRIORITY : LOW_PRIORITY)
-                            .addClass(this).addVisitedField(this));
+                    .addClass(this).addVisitedField(this));
         }
     }
 
@@ -442,11 +442,11 @@ public class Naming extends PreorderVisitor implements Detector {
                 && Character.isLowerCase(fieldName.charAt(1));
     }
 
-    private final static Pattern sigType = Pattern.compile("L([^;]*/)?([^/]+;)");
+    private static final Pattern sigType = Pattern.compile("L([^;]*/)?([^/]+;)");
 
 
 
-    private static @CheckForNull String getSignatureOfOuterClass(JavaClass obj) {
+    private static @Nullable String getSignatureOfOuterClass(JavaClass obj) {
         for (Field f : obj.getFields()) {
             if (f.getName().startsWith("this$")) {
                 return f.getSignature();
@@ -481,7 +481,7 @@ public class Naming extends PreorderVisitor implements Detector {
         return false;
     }
 
-    private static @CheckForNull Method findVoidConstructor(JavaClass clazz) {
+    private static @Nullable Method findVoidConstructor(JavaClass clazz) {
         for (Method m : clazz.getMethods()) {
             if (isVoidConstructor(clazz, m)) {
                 return m;
@@ -506,9 +506,7 @@ public class Naming extends PreorderVisitor implements Detector {
             Method realVoidConstructor = findVoidConstructor(getThisClass());
             if (code != null && !markedAsNotUsable(obj)) {
                 int priority = NORMAL_PRIORITY;
-                if (codeDoesSomething(code)) {
-                    priority--;
-                } else if (!obj.isPublic() && getThisClass().isPublic()) {
+                if (codeDoesSomething(code) || (!obj.isPublic() && getThisClass().isPublic())) {
                     priority--;
                 }
                 boolean instanceMembers = false;
@@ -520,6 +518,7 @@ public class Naming extends PreorderVisitor implements Detector {
                 for (Field f : this.getThisClass().getFields()) {
                     if (!f.isStatic()) {
                         instanceMembers = true;
+                        break;
                     }
                 }
                 if (!codeDoesSomething(code) && !instanceMembers && "java/lang/Object".equals(getSuperclassName())) {
@@ -542,7 +541,7 @@ public class Naming extends PreorderVisitor implements Detector {
         } else if (badMethodName(mName)) {
             bugReporter.reportBug(new BugInstance(this, "NM_METHOD_NAMING_CONVENTION", classIsPublicOrProtected
                     && (obj.isPublic() || obj.isProtected()) && !hasBadMethodNames ? NORMAL_PRIORITY : LOW_PRIORITY)
-                            .addClassAndMethod(this));
+                    .addClassAndMethod(this));
         }
 
         if (obj.isAbstract()) {

@@ -21,7 +21,6 @@ package edu.umd.cs.findbugs;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.HashSet;
 import java.util.Set;
@@ -52,6 +51,10 @@ import static java.util.logging.Level.*;
  * @author David Hovemeyer
  */
 public abstract class FindBugs {
+
+    /** Date of release of Java 1.0 */
+    public static final long MINIMUM_TIMESTAMP = new GregorianCalendar(1996, 0, 23).getTime().getTime();
+
     /**
      * Analysis settings for -effort:min.
      */
@@ -185,15 +188,7 @@ public abstract class FindBugs {
      * are assumed to be files.
      */
     @StaticConstant
-    public static final Set<String> knownURLProtocolSet;
-    static {
-        Set<String> protocols = new HashSet<>();
-        protocols.add("file");
-        protocols.add("http");
-        protocols.add("https");
-        protocols.add("jar");
-        knownURLProtocolSet = Collections.unmodifiableSet(protocols);
-    }
+    public static final Set<String> knownURLProtocolSet = Set.of("file", "http", "https", "jar");
 
     /**
      * Set the FindBugs home directory.
@@ -250,7 +245,7 @@ public abstract class FindBugs {
      * @param factory
      *            the DetectorFactory
      * @param rankThreshold
-     *            TODO
+     *            the rank threshold
      * @return true if the DetectorFactory should be enabled, false otherwise
      */
     public static boolean isDetectorEnabled(IFindBugsEngine findBugs, DetectorFactory factory, int rankThreshold) {
@@ -396,6 +391,7 @@ public abstract class FindBugs {
         } catch (InterruptedException e) {
             assert false; // should not occur
             checkExitCodeFail(commandLine, e);
+            Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         } catch (RuntimeException | IOException e) {
             checkExitCodeFail(commandLine, e);
@@ -450,7 +446,7 @@ public abstract class FindBugs {
      * Show the overall FindBugs command synopsis.
      */
     public static void showSynopsis() {
-        LOG.warning("Usage: findbugs [general options] -textui [command line options...] [jar/zip/class files, directories...]");
+        LOG.warning("Usage: spotbugs [general options] -textui [command line options...] [jar/zip/class files, directories...]");
     }
 
     /**
@@ -518,9 +514,6 @@ public abstract class FindBugs {
             bugs.getProjectStats().setTimestamp(timestamp);
         }
     }
-
-    /** Date of release of Java 1.0 */
-    public final static long MINIMUM_TIMESTAMP = new GregorianCalendar(1996, 0, 23).getTime().getTime();
 
     public static boolean validTimestamp(long timestamp) {
         return timestamp > MINIMUM_TIMESTAMP;

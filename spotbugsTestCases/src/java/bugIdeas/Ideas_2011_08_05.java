@@ -1,14 +1,12 @@
 package bugIdeas;
 
-import javax.annotation.Nonnull;
-
 import com.google.common.base.Preconditions;
 
 import edu.umd.cs.findbugs.annotations.NoWarning;
 
+import org.jspecify.annotations.NonNull;
+
 public class Ideas_2011_08_05 {
-
-
 
     public String returnNonnull() {
         return "x";
@@ -19,7 +17,7 @@ public class Ideas_2011_08_05 {
         return x.hashCode();
     }
     @NoWarning("RCN")
-    public int test2(@Nonnull String x) {
+    public int test2(@NonNull String x) {
         Preconditions.checkNotNull(x);
         return x.hashCode();
     }
@@ -29,8 +27,6 @@ public class Ideas_2011_08_05 {
         Preconditions.checkNotNull(x);
         return h;
     }
-
-
 
     @NoWarning("RCN")
     public int test4() {
@@ -48,12 +44,12 @@ public class Ideas_2011_08_05 {
     }
 
     @NoWarning("RCN")
-    public int test5(@Nonnull String x) {
+    public int test5(@NonNull String x) {
         if (x == null)
             throw new RuntimeException();
         return x.hashCode();
     }
-    public int test5OK(@Nonnull String x) {
+    public int test5OK(@NonNull String x) {
         if (x == null)
             System.out.println("Oops");
         return x.hashCode();
@@ -65,7 +61,6 @@ public class Ideas_2011_08_05 {
             throw new RuntimeException();
         return h;
     }
-
 
     public int test6OK(String x) {
         int h = x.hashCode();
@@ -89,6 +84,5 @@ public class Ideas_2011_08_05 {
             return x.hashCode();
         }
     }
-
 
 }

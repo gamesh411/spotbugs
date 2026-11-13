@@ -1,14 +1,12 @@
 package nonnull;
 
-import edu.umd.cs.findbugs.annotations.CheckForNull;
-import edu.umd.cs.findbugs.annotations.NonNull;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 abstract class Foo {
-    protected abstract @CheckForNull
-    Object getCheckForNull();
+    protected abstract @Nullable Object getCheckForNull();
 
-    public abstract @NonNull
-    Object reportReturnNull();
+    public abstract @NonNull Object reportReturnNull();
 }
 
 abstract class Bar extends Foo {
@@ -31,14 +29,12 @@ public abstract class TestReturnValue {
     }
 
     // Even more blatant: violate a annotation directly
-    public @NonNull
-    Object reportNonNull2() {
+    public @NonNull Object reportNonNull2() {
         return null;
     }
 
     // This is fine
-    public @CheckForNull
-    Object doNotReportReturnCheckForNull() {
+    public @Nullable Object doNotReportReturnCheckForNull() {
         return null;
     }
 }

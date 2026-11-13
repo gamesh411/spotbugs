@@ -21,21 +21,20 @@ package edu.umd.cs.findbugs;
 
 import java.util.Objects;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
-import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.classfile.ClassDescriptor;
 import edu.umd.cs.findbugs.classfile.MethodDescriptor;
 
 /**
  * An implementation of {@link BugReporter} that synchronize all method invocations.
- * 
+ *
  * @since 4.0
  */
 class SynchronizedBugReporter implements BugReporter {
-    @NonNull
-    private final BugReporter delegate;
+
+    private final @NonNull BugReporter delegate;
 
     SynchronizedBugReporter(@NonNull BugReporter delegate) {
         this.delegate = Objects.requireNonNull(delegate);
@@ -52,12 +51,17 @@ class SynchronizedBugReporter implements BugReporter {
     }
 
     @Override
+    public void setPriorityAdjuster(PriorityAdjuster priorityAdjuster) {
+        delegate.setPriorityAdjuster(priorityAdjuster);
+    }
+
+    @Override
     public synchronized void observeClass(ClassDescriptor classDescriptor) {
         delegate.observeClass(classDescriptor);
     }
 
     @Override
-    public synchronized void reportBug(@Nonnull BugInstance bugInstance) {
+    public synchronized void reportBug(@NonNull BugInstance bugInstance) {
         delegate.reportBug(bugInstance);
     }
 
@@ -112,8 +116,7 @@ class SynchronizedBugReporter implements BugReporter {
     }
 
     @Override
-    @CheckForNull
-    public synchronized BugCollection getBugCollection() {
+    public synchronized @Nullable BugCollection getBugCollection() {
         return delegate.getBugCollection();
     }
 }

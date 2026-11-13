@@ -23,16 +23,14 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 
-import javax.annotation.CheckForNull;
-
 import org.apache.bcel.generic.Instruction;
 import org.apache.bcel.generic.InstructionHandle;
 import org.apache.bcel.generic.InvokeInstruction;
 import org.apache.bcel.generic.MethodGen;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.SystemProperties;
 import edu.umd.cs.findbugs.ba.BasicBlock;
-import edu.umd.cs.findbugs.ba.Dataflow;
 import edu.umd.cs.findbugs.ba.DataflowAnalysisException;
 import edu.umd.cs.findbugs.ba.DepthFirstSearch;
 import edu.umd.cs.findbugs.ba.Edge;
@@ -56,7 +54,7 @@ import edu.umd.cs.findbugs.internalAnnotations.DottedClassName;
  */
 public class ValueNumberAnalysis extends FrameDataflowAnalysis<ValueNumber, ValueNumberFrame> {
 
-    private final static boolean TRACE = SystemProperties.getBoolean("vna.trace");
+    private static final boolean TRACE = SystemProperties.getBoolean("vna.trace");
 
     public static final boolean DEBUG = TRACE || SystemProperties.getBoolean("vna.debug");
 
@@ -387,26 +385,6 @@ public class ValueNumberAnalysis extends FrameDataflowAnalysis<ValueNumber, Valu
      */
 
     /**
-     * <p>Compact the value numbers assigned. This should be done only after the
-     * dataflow algorithm has executed. This works by modifying the actual
-     * ValueNumber objects assigned. After this method is called, the
-     * getNumValuesAllocated() method of this object will return a value less
-     * than or equal to the value it would have returned before the call to this
-     * method.
-     * </p>
-     * <p>
-     * <em>This method should be called at most once</em>.
-     * </p>
-     * @param dataflow
-     *            the Dataflow object which executed this analysis (and has all
-     *            of the block result values)
-     */
-    @Deprecated
-    public void compactValueNumbers(Dataflow<ValueNumberFrame, ValueNumberAnalysis> dataflow) {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
      * Mark value numbers in a value number frame for compaction.
      *
     private static void markFrameValues(ValueNumberFrame frame, ValueCompacter compacter) {
@@ -459,7 +437,7 @@ public class ValueNumberAnalysis extends FrameDataflowAnalysis<ValueNumber, Valu
         return valueNumber;
     }
 
-    public @CheckForNull @DottedClassName String getClassName(ValueNumber v) {
+    public @Nullable @DottedClassName String getClassName(ValueNumber v) {
         return factory.getClassName(v);
     }
 }

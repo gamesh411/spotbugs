@@ -26,10 +26,8 @@ import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
-import java.util.regex.Pattern;
 
-import javax.annotation.CheckForNull;
-
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.Attributes;
@@ -37,6 +35,7 @@ import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
 import edu.umd.cs.findbugs.filter.AndMatcher;
+import edu.umd.cs.findbugs.filter.AnnotationMatcher;
 import edu.umd.cs.findbugs.filter.BugMatcher;
 import edu.umd.cs.findbugs.filter.ClassMatcher;
 import edu.umd.cs.findbugs.filter.CompoundMatcher;
@@ -78,11 +77,9 @@ public class SAXBugCollectionHandler extends DefaultHandler {
         return memoized(attributes.getValue(qName));
     }
 
-    @CheckForNull
-    private final BugCollection bugCollection;
+    private final @Nullable BugCollection bugCollection;
 
-    @CheckForNull
-    private final Project project;
+    private final @Nullable Project project;
 
     private final Stack<CompoundMatcher> matcherStack = new Stack<>();
 
@@ -90,7 +87,7 @@ public class SAXBugCollectionHandler extends DefaultHandler {
 
     private final MapCache<String, String> cache = new MapCache<>(2000);
 
-    private final ArrayList<String> elementStack;
+    private final List<String> elementStack;
 
     private final StringBuilder textBuffer;
 
@@ -103,18 +100,18 @@ public class SAXBugCollectionHandler extends DefaultHandler {
     // private ClassHash classHash;
     private ClassFeatureSet classFeatureSet;
 
-    private final ArrayList<String> stackTrace;
+    private final List<String> stackTrace;
 
     private int nestingOfIgnoredElements = 0;
 
-    private final @CheckForNull File base;
+    private final @Nullable File base;
 
     private final String topLevelName;
 
     private final Map<String, Method> qnameCache = new HashMap<>();
 
-    private SAXBugCollectionHandler(String topLevelName, @CheckForNull BugCollection bugCollection,
-            @CheckForNull Project project, @CheckForNull File base) {
+    private SAXBugCollectionHandler(String topLevelName, @Nullable BugCollection bugCollection,
+            @Nullable Project project, @Nullable File base) {
         this.topLevelName = topLevelName;
         this.bugCollection = bugCollection;
         this.project = project;
@@ -126,7 +123,7 @@ public class SAXBugCollectionHandler extends DefaultHandler {
 
     }
 
-    public SAXBugCollectionHandler(BugCollection bugCollection, @CheckForNull File base) {
+    public SAXBugCollectionHandler(BugCollection bugCollection, @Nullable File base) {
         this(BUG_COLLECTION, bugCollection, bugCollection.getProject(), base);
     }
 
@@ -144,11 +141,10 @@ public class SAXBugCollectionHandler extends DefaultHandler {
         pushCompoundMatcher(filter);
     }
 
-    Pattern ignoredElement = Pattern.compile("Message|ShortMessage|LongMessage");
+    private static final Set<String> IGNORED_ELEMENTS = Set.of("Message", "ShortMessage", "LongMessage");
 
     public boolean discardedElement(String qName) {
-        return ignoredElement.matcher(qName).matches();
-
+        return IGNORED_ELEMENTS.contains(qName);
     }
 
     public String getTextContents() {
@@ -185,36 +181,36 @@ public class SAXBugCollectionHandler extends DefaultHandler {
             }
 
             if (BUG_COLLECTION.equals(qName)) {
-                BugCollection bugCollection = this.bugCollection;
-                assert bugCollection != null;
+                BugCollection bugcollection = this.bugCollection;
+                assert bugcollection != null;
                 // Read and set the sequence number.
                 String version = getOptionalAttribute(attributes, "version");
-                if (bugCollection instanceof SortedBugCollection) {
-                    bugCollection.setAnalysisVersion(version);
+                if (bugcollection instanceof SortedBugCollection) {
+                    bugcollection.setAnalysisVersion(version);
                 }
 
                 // Read and set the sequence number.
                 String sequence = getOptionalAttribute(attributes, "sequence");
                 long seqval = parseLong(sequence, 0L);
-                bugCollection.setSequenceNumber(seqval);
+                bugcollection.setSequenceNumber(seqval);
 
                 // Read and set timestamp.
                 String timestamp = getOptionalAttribute(attributes, "timestamp");
                 long tsval = parseLong(timestamp, -1L);
-                bugCollection.setTimestamp(tsval);
+                bugcollection.setTimestamp(tsval);
                 // Read and set timestamp.
                 String analysisTimestamp = getOptionalAttribute(attributes, "analysisTimestamp");
                 if (analysisTimestamp != null) {
-                    bugCollection.setAnalysisTimestamp(parseLong(analysisTimestamp, -1L));
+                    bugcollection.setAnalysisTimestamp(parseLong(analysisTimestamp, -1L));
                 }
                 String analysisVersion = getOptionalAttribute(attributes, "version");
                 if (analysisVersion != null) {
-                    bugCollection.setAnalysisVersion(analysisVersion);
+                    bugcollection.setAnalysisVersion(analysisVersion);
                 }
 
                 // Set release name, if present.
                 String releaseName = getOptionalAttribute(attributes, "release");
-                bugCollection.setReleaseName((releaseName != null) ? releaseName : "");
+                bugcollection.setReleaseName((releaseName != null) ? releaseName : "");
             } else if (isTopLevelFilter(qName)) {
                 if (project != null) {
                     filter = new Filter();
@@ -223,12 +219,12 @@ public class SAXBugCollectionHandler extends DefaultHandler {
                 matcherStack.clear();
                 pushCompoundMatcher(filter);
             } else if (PROJECT.equals(qName)) {
-                Project project = this.project;
-                assert project != null;
+                Project prjct = this.project;
+                assert prjct != null;
                 // Project element
                 String projectName = getOptionalAttribute(attributes, Project.PROJECTNAME_ATTRIBUTE_NAME);
                 if (projectName != null) {
-                    project.setProjectName(projectName);
+                    prjct.setProjectName(projectName);
                 }
             } else {
                 String outerElement = elementStack.get(elementStack.size() - 1);
@@ -282,17 +278,17 @@ public class SAXBugCollectionHandler extends DefaultHandler {
                         String timestamp = getRequiredAttribute(attributes, "timestamp", qName);
                         String vmVersion = getOptionalAttribute(attributes, "vm_version");
                         String totalClasses = getOptionalAttribute(attributes, "total_classes");
-                        if (totalClasses != null && totalClasses.length() > 0) {
+                        if (totalClasses != null && !totalClasses.isEmpty()) {
                             bugCollection.getProjectStats().setTotalClasses(Integer.parseInt(totalClasses));
                         }
 
                         String totalSize = getOptionalAttribute(attributes, "total_size");
-                        if (totalSize != null && totalSize.length() > 0) {
+                        if (totalSize != null && !totalSize.isEmpty()) {
                             bugCollection.getProjectStats().setTotalSize(Integer.parseInt(totalSize));
                         }
 
                         String referencedClasses = getOptionalAttribute(attributes, "referenced_classes");
-                        if (referencedClasses != null && referencedClasses.length() > 0) {
+                        if (referencedClasses != null && !referencedClasses.isEmpty()) {
                             bugCollection.getProjectStats().setReferencedClasses(Integer.parseInt(referencedClasses));
                         }
                         bugCollection.getProjectStats().setVMVersion(vmVersion);
@@ -317,22 +313,22 @@ public class SAXBugCollectionHandler extends DefaultHandler {
                         stackTrace.clear();
                     }
                 } else if ("FindBugsSummary".equals(outerElement) && "PackageStats".equals(qName)) {
-                    BugCollection bugCollection = this.bugCollection;
-                    assert bugCollection != null;
+                    BugCollection bugcollection = this.bugCollection;
+                    assert bugcollection != null;
                     String packageName = getRequiredAttribute(attributes, "package", qName);
                     int numClasses = Integer.parseInt(getRequiredAttribute(attributes, "total_types", qName));
                     int size = Integer.parseInt(getRequiredAttribute(attributes, "total_size", qName));
-                    bugCollection.getProjectStats().putPackageStats(packageName, numClasses, size);
+                    bugcollection.getProjectStats().putPackageStats(packageName, numClasses, size);
 
                 } else if ("PackageStats".equals(outerElement)) {
-                    BugCollection bugCollection = this.bugCollection;
-                    assert bugCollection != null;
+                    BugCollection bugcollection = this.bugCollection;
+                    assert bugcollection != null;
                     if ("ClassStats".equals(qName)) {
                         String className = getRequiredAttribute(attributes, "class", qName);
-                        Boolean isInterface = Boolean.valueOf(getRequiredAttribute(attributes, "interface", qName));
+                        boolean isInterface = Boolean.parseBoolean(getRequiredAttribute(attributes, "interface", qName));
                         int size = Integer.parseInt(getRequiredAttribute(attributes, "size", qName));
                         String sourceFile = getOptionalAttribute(attributes, "sourceFile");
-                        bugCollection.getProjectStats().addClass(className, sourceFile, isInterface, size, false);
+                        bugcollection.getProjectStats().addClass(className, sourceFile, isInterface, size, false);
                     }
 
                 } else if (isTopLevelFilter(outerElement) || isCompoundElementTag(outerElement)) {
@@ -350,8 +346,8 @@ public class SAXBugCollectionHandler extends DefaultHandler {
                     }
                 } else if (BugCollection.HISTORY_ELEMENT_NAME.equals(outerElement)) {
                     if (AppVersion.ELEMENT_NAME.equals(qName)) {
-                        BugCollection bugCollection = this.bugCollection;
-                        assert bugCollection != null;
+                        BugCollection bugcollection = this.bugCollection;
+                        assert bugcollection != null;
 
                         try {
                             String sequence = getRequiredAttribute(attributes, "sequence", qName);
@@ -373,18 +369,18 @@ public class SAXBugCollectionHandler extends DefaultHandler {
                                 appVersion.setNumClasses(Integer.parseInt(numClasses));
                             }
 
-                            bugCollection.addAppVersion(appVersion);
+                            bugcollection.addAppVersion(appVersion);
                         } catch (NumberFormatException e) {
                             throw new SAXException("Invalid AppVersion element", e);
                         }
                     }
                 } else if (BugCollection.PROJECT_ELEMENT_NAME.equals(outerElement)) {
-                    Project project = this.project;
-                    assert project != null;
+                    Project prjct = this.project;
+                    assert prjct != null;
                     if (Project.PLUGIN_ELEMENT_NAME.equals(qName)) {
                         String pluginId = getRequiredAttribute(attributes, Project.PLUGIN_ID_ATTRIBUTE_NAME, qName);
                         Boolean enabled = Boolean.valueOf(getRequiredAttribute(attributes, Project.PLUGIN_STATUS_ELEMENT_NAME, qName));
-                        project.setPluginStatusTrinary(pluginId, enabled);
+                        prjct.setPluginStatusTrinary(pluginId, enabled);
                     }
                 }
             }
@@ -507,6 +503,8 @@ public class SAXBugCollectionHandler extends DefaultHandler {
             pushCompoundMatcherAsChild(matcher);
         } else if ("Source".equals(qName)) {
             addMatcher(new SourceMatcher(getRequiredAttribute(attributes, "name", qName)));
+        } else if ("Annotation".equals(qName)) {
+            addMatcher(new AnnotationMatcher(getRequiredAttribute(attributes, "name", qName)));
         }
         nextMatchedIsDisabled = false;
     }
@@ -516,7 +514,12 @@ public class SAXBugCollectionHandler extends DefaultHandler {
         BugAnnotation bugAnnotation = null;
         if ("Class".equals(qName)) {
             String className = getRequiredAttribute(attributes, "classname", qName);
+            String classAnnotationNames = getOptionalAttribute(attributes, "classAnnotationNames");
             bugAnnotation = bugAnnotationWithSourceLines = new ClassAnnotation(className);
+            if (classAnnotationNames != null) {
+                ((PackageMemberAnnotation) bugAnnotation)
+                        .setJavaAnnotationNames(Arrays.asList(classAnnotationNames.split(",")));
+            }
         } else if ("Type".equals(qName)) {
             String typeDescriptor = getRequiredAttribute(attributes, "descriptor", qName);
             TypeAnnotation typeAnnotation;
@@ -530,6 +533,7 @@ public class SAXBugCollectionHandler extends DefaultHandler {
             String classname = getRequiredAttribute(attributes, "classname", qName);
             String fieldOrMethodName = getRequiredAttribute(attributes, "name", qName);
             String signature = getRequiredAttribute(attributes, "signature", qName);
+            String classAnnotationNames = getOptionalAttribute(attributes, "classAnnotationNames");
             if ("Method".equals(qName)) {
                 String isStatic = getOptionalAttribute(attributes, "isStatic");
                 if (isStatic == null) {
@@ -537,15 +541,18 @@ public class SAXBugCollectionHandler extends DefaultHandler {
                 }
 
                 bugAnnotation = bugAnnotationWithSourceLines = new MethodAnnotation(classname, fieldOrMethodName, signature,
-                        Boolean.valueOf(isStatic));
+                        Boolean.parseBoolean(isStatic));
 
             } else {
                 String isStatic = getRequiredAttribute(attributes, "isStatic", qName);
                 String sourceSignature = getOptionalAttribute(attributes, "sourceSignature");
                 bugAnnotation = bugAnnotationWithSourceLines = new FieldAnnotation(classname, fieldOrMethodName, signature,
-                        sourceSignature, Boolean.valueOf(isStatic));
+                        sourceSignature, Boolean.parseBoolean(isStatic));
             }
-
+            if (classAnnotationNames != null) {
+                ((PackageMemberAnnotation) bugAnnotation)
+                        .setJavaAnnotationNames(Arrays.asList(classAnnotationNames.split(",")));
+            }
         } else if ("SourceLine".equals(qName)) {
             SourceLineAnnotation sourceAnnotation = createSourceLineAnnotation(qName, attributes);
             if (!sourceAnnotation.isSynthetic()) {
@@ -712,34 +719,34 @@ public class SAXBugCollectionHandler extends DefaultHandler {
 
                 matcherStack.pop();
             } else if (BUG_COLLECTION.equals(outerElement)) {
-                BugCollection bugCollection = this.bugCollection;
-                assert bugCollection != null;
+                BugCollection bugcollection = this.bugCollection;
+                assert bugcollection != null;
                 if ("BugInstance".equals(qName)) {
-                    bugCollection.add(bugInstance, false);
+                    bugcollection.add(bugInstance, false);
                 }
             } else if (PROJECT.equals(outerElement)) {
-                Project project = this.project;
-                assert project != null;
+                Project prjct = this.project;
+                assert prjct != null;
                 if ("Jar".equals(qName)) {
-                    project.addFile(makeAbsolute(getTextContents()));
+                    prjct.addFile(makeAbsolute(getTextContents()));
                 } else if ("SrcDir".equals(qName)) {
                     sourceDirs.add(makeAbsolute(getTextContents()));
                 } else if ("AuxClasspathEntry".equals(qName)) {
-                    project.addAuxClasspathEntry(makeAbsolute(getTextContents()));
+                    prjct.addAuxClasspathEntry(makeAbsolute(getTextContents()));
                 }
             } else if (BugCollection.ERRORS_ELEMENT_NAME.equals(outerElement)) {
-                BugCollection bugCollection = this.bugCollection;
-                assert bugCollection != null;
+                BugCollection bugcollection = this.bugCollection;
+                assert bugcollection != null;
                 if (BugCollection.ANALYSIS_ERROR_ELEMENT_NAME.equals(qName)) {
                     analysisError.setMessage(getTextContents());
-                    bugCollection.addError(analysisError);
+                    bugcollection.addError(analysisError);
                 } else if (BugCollection.ERROR_ELEMENT_NAME.equals(qName)) {
-                    if (stackTrace.size() > 0) {
+                    if (!stackTrace.isEmpty()) {
                         analysisError.setStackTrace(stackTrace.toArray(new String[0]));
                     }
-                    bugCollection.addError(analysisError);
+                    bugcollection.addError(analysisError);
                 } else if (BugCollection.MISSING_CLASS_ELEMENT_NAME.equals(qName)) {
-                    bugCollection.addMissingClass(getTextContents());
+                    bugcollection.addMissingClass(getTextContents());
                 }
 
             } else if (BugCollection.ERROR_ELEMENT_NAME.equals(outerElement)) {
@@ -752,10 +759,10 @@ public class SAXBugCollectionHandler extends DefaultHandler {
                 }
             } else if ("ClassFeatures".equals(outerElement)) {
                 if (ClassFeatureSet.ELEMENT_NAME.equals(qName)) {
-                    BugCollection bugCollection = this.bugCollection;
-                    assert bugCollection != null;
+                    BugCollection bugcollection = this.bugCollection;
+                    assert bugcollection != null;
 
-                    bugCollection.setClassFeatureSet(classFeatureSet);
+                    bugcollection.setClassFeatureSet(classFeatureSet);
                     classFeatureSet = null;
                 }
             }

@@ -28,9 +28,10 @@ import java.util.NoSuchElementException;
 import java.util.StringTokenizer;
 import java.util.regex.Pattern;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
 import javax.annotation.WillClose;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.SystemProperties;
 import edu.umd.cs.findbugs.util.Util;
@@ -164,12 +165,13 @@ public class SourceInfoMap {
      * A range of source lines.
      */
     public static class SourceLineRange {
-        private final Integer start, end;
+        private final Integer start;
+        private final Integer end;
 
         /**
          * Constructor for a single line.
          */
-        public SourceLineRange(@Nonnull Integer line) {
+        public SourceLineRange(@NonNull Integer line) {
             this.start = this.end = line;
         }
 
@@ -181,7 +183,7 @@ public class SourceInfoMap {
          * @param end
          *            end line in range
          */
-        public SourceLineRange(@Nonnull Integer start, @Nonnull Integer end) {
+        public SourceLineRange(@NonNull Integer start, @NonNull Integer end) {
             this.start = start;
             this.end = end;
         }
@@ -189,14 +191,14 @@ public class SourceInfoMap {
         /**
          * @return Returns the start.
          */
-        public @Nonnull Integer getStart() {
+        public @NonNull Integer getStart() {
             return start;
         }
 
         /**
          * @return Returns the end.
          */
-        public @Nonnull Integer getEnd() {
+        public @NonNull Integer getEnd() {
             return end;
         }
 
@@ -288,7 +290,7 @@ public class SourceInfoMap {
      * @return the line number range, or null if no line number is known for the
      *         field
      */
-    public @CheckForNull SourceLineRange getFieldLine(String className, String fieldName) {
+    public @Nullable SourceLineRange getFieldLine(String className, String fieldName) {
         return fieldLineMap.get(new FieldDescriptor(className, fieldName));
     }
 
@@ -304,7 +306,7 @@ public class SourceInfoMap {
      * @return the line number range, or null if no line number is known for the
      *         method
      */
-    public @CheckForNull SourceLineRange getMethodLine(String className, String methodName, String methodSignature) {
+    public @Nullable SourceLineRange getMethodLine(String className, String methodName, String methodSignature) {
         return methodLineMap.get(new MethodDescriptor(className, methodName, methodSignature));
     }
 
@@ -316,7 +318,7 @@ public class SourceInfoMap {
      * @return the line number range, or null if no line number is known for the
      *         class
      */
-    public @CheckForNull SourceLineRange getClassLine(String className) {
+    public @Nullable SourceLineRange getClassLine(String className) {
         return classLineMap.get(className);
     }
 

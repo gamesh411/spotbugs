@@ -99,10 +99,11 @@ public class BuildStringPassthruGraph extends OpcodeStackDetector implements Non
     }
 
     public static class StringPassthruDatabase {
-        private static final List<MethodDescriptor> FILENAME_STRING_METHODS = Arrays.asList(
+        private static final List<MethodDescriptor> FILENAME_STRING_METHODS = List.of(
                 new MethodDescriptor("java/io/File", Const.CONSTRUCTOR_NAME, "(Ljava/lang/String;)V"),
                 new MethodDescriptor("java/io/File", Const.CONSTRUCTOR_NAME, "(Ljava/lang/String;Ljava/lang/String;)V"),
                 new MethodDescriptor("java/io/RandomAccessFile", Const.CONSTRUCTOR_NAME, "(Ljava/lang/String;Ljava/lang/String;)V"),
+                new MethodDescriptor("java/nio/file/Path", "of", "(Ljava/lang/String;[Ljava/lang/String;)Ljava/nio/file/Path;", true),
                 new MethodDescriptor("java/nio/file/Paths", "get", "(Ljava/lang/String;[Ljava/lang/String;)Ljava/nio/file/Path;", true),
                 new MethodDescriptor("java/io/FileReader", Const.CONSTRUCTOR_NAME, "(Ljava/lang/String;)V"),
                 new MethodDescriptor("java/io/FileWriter", Const.CONSTRUCTOR_NAME, "(Ljava/lang/String;)V"),
@@ -121,6 +122,15 @@ public class BuildStringPassthruGraph extends OpcodeStackDetector implements Non
                 new MethodDescriptor("java/io/PrintStream", Const.CONSTRUCTOR_NAME, "(Ljava/lang/String;Ljava/lang/String;)V"),
                 new MethodDescriptor("java/io/PrintWriter", Const.CONSTRUCTOR_NAME, "(Ljava/lang/String;)V"),
                 new MethodDescriptor("java/io/PrintWriter", Const.CONSTRUCTOR_NAME, "(Ljava/lang/String;Ljava/lang/String;)V"));
+
+        /**
+         * Methods whose file name is the second parameter rather than the first. Both two argument
+         * java.io.File constructors resolve the child against the parent, so a traversal in the
+         * child escapes the parent directory.
+         */
+        private static final List<MethodDescriptor> FILENAME_STRING_METHODS_SECOND_PARAMETER = List.of(
+                new MethodDescriptor("java/io/File", Const.CONSTRUCTOR_NAME, "(Ljava/lang/String;Ljava/lang/String;)V"),
+                new MethodDescriptor("java/io/File", Const.CONSTRUCTOR_NAME, "(Ljava/io/File;Ljava/lang/String;)V"));
 
         private final Map<MethodParameter, Set<MethodParameter>> graph = new HashMap<>();
 
@@ -185,6 +195,9 @@ public class BuildStringPassthruGraph extends OpcodeStackDetector implements Non
             Set<MethodParameter> fileNameStringMethods = new HashSet<>();
             for (MethodDescriptor md : FILENAME_STRING_METHODS) {
                 fileNameStringMethods.add(new MethodParameter(md, 0));
+            }
+            for (MethodDescriptor md : FILENAME_STRING_METHODS_SECOND_PARAMETER) {
+                fileNameStringMethods.add(new MethodParameter(md, 1));
             }
             return findLinkedMethods(fileNameStringMethods);
         }

@@ -19,7 +19,16 @@
 
 package edu.umd.cs.findbugs.plan;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import edu.umd.cs.findbugs.Detector;
 import edu.umd.cs.findbugs.DetectorFactory;
@@ -30,6 +39,8 @@ import edu.umd.cs.findbugs.Plugin;
 import edu.umd.cs.findbugs.SystemProperties;
 import edu.umd.cs.findbugs.graph.DepthFirstSearch;
 import edu.umd.cs.findbugs.internalAnnotations.DottedClassName;
+
+import org.jspecify.annotations.NonNull;
 
 /**
  * A plan for executing Detectors on an application. Automatically assigns
@@ -138,11 +149,7 @@ public class ExecutionPlan {
      */
     public void build() throws OrderingConstraintException {
 
-        for (DetectorFactory detectorFactory : factoryMap.values()) {
-            detectorFactory.setEnabledButNonReporting(false);
-        }
-
-        ArrayList<DetectorOrderingConstraint> allConstraints = new ArrayList<>(
+        List<DetectorOrderingConstraint> allConstraints = new ArrayList<>(
                 interPassConstraintList.size() + intraPassConstraintList.size());
         allConstraints.addAll(interPassConstraintList);
         allConstraints.addAll(intraPassConstraintList);
@@ -330,8 +337,6 @@ public class ExecutionPlan {
     }
 
     private void buildPassList(ConstraintGraph constraintGraph) throws OrderingConstraintException {
-
-        int passCount = 0;
         while (constraintGraph.getNumVertices() > 0) {
             List<DetectorNode> inDegreeZeroList = new LinkedList<>();
             // Get all of the detectors nodes with in-degree 0.
@@ -367,7 +372,6 @@ public class ExecutionPlan {
             // it doesn't assign them a position in the pass.
             AnalysisPass pass = new AnalysisPass();
             addPass(pass);
-            passCount++;
             for (DetectorNode node : inDegreeZeroList) {
                 assignToPass(node.getFactory(), pass);
             }
@@ -396,8 +400,8 @@ public class ExecutionPlan {
         for (DetectorOrderingConstraint constraint : constraintList) {
             // Does this constraint specify any detectors in this pass?
             // If so, add it to the pass constraints
-            if (selectDetectors(constraint.getEarlier(), detectorSet).size() > 0
-                    || selectDetectors(constraint.getLater(), detectorSet).size() > 0) {
+            if (!selectDetectors(constraint.getEarlier(), detectorSet).isEmpty()
+                    || !selectDetectors(constraint.getLater(), detectorSet).isEmpty()) {
                 passConstraintList.add(constraint);
             }
         }
@@ -524,5 +528,12 @@ public class ExecutionPlan {
 
         System.out.println(execPlan.getNumPasses() + " passes in plan");
         execPlan.print();
+    }
+
+    /**
+     * @return Returns the factoryChooser used during analysis.
+     */
+    public @NonNull DetectorFactoryChooser getFactoryChooser() {
+        return factoryChooser;
     }
 }

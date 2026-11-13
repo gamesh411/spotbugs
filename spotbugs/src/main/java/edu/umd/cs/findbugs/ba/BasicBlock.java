@@ -23,12 +23,10 @@ import java.util.BitSet;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nullable;
-
 import org.apache.bcel.Const;
 import org.apache.bcel.generic.CodeExceptionGen;
 import org.apache.bcel.generic.InstructionHandle;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.ba.type.TypeMerger;
 import edu.umd.cs.findbugs.graph.AbstractVertex;
@@ -128,17 +126,6 @@ public class BasicBlock extends AbstractVertex<Edge, BasicBlock> implements Debu
         this.inJSRSubroutine = inJSRSubroutine;
     }
 
-    /**
-     * Get the basic block's integer label.
-     *
-     * @deprecated call getLabel() instead
-     * @return the BasicBlock's integer label
-     */
-    @Deprecated
-    public int getId() {
-        return getLabel();
-    }
-
     @Override
     public String toString() {
         return "block " + String.valueOf(getLabel());
@@ -207,7 +194,7 @@ public class BasicBlock extends AbstractVertex<Edge, BasicBlock> implements Debu
      * @return the instruction's successor, or null if the instruction is the
      *         last in the basic block
      */
-    public @CheckForNull InstructionHandle getSuccessorOf(InstructionHandle handle) {
+    public @Nullable InstructionHandle getSuccessorOf(InstructionHandle handle) {
         if (VERIFY_INTEGRITY && !containsInstruction(handle)) {
             throw new IllegalStateException();
         }
@@ -313,9 +300,9 @@ public class BasicBlock extends AbstractVertex<Edge, BasicBlock> implements Debu
             buf.append("[basicBlock=");
             buf.append(getBasicBlock().getLabel());
             if (next != null) {
-                buf.append(", next=" + next);
+                buf.append(", next=").append(next);
             } else if (getBasicBlock().isExceptionThrower()) {
-                buf.append(", check for" + getBasicBlock().getExceptionThrower());
+                buf.append(", check for").append(getBasicBlock().getExceptionThrower());
             } else {
                 buf.append(", end");
             }

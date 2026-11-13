@@ -25,8 +25,7 @@ import java.net.URL;
 import java.util.Enumeration;
 import java.util.jar.Manifest;
 
-import javax.annotation.CheckForNull;
-
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,12 +42,6 @@ public class Version {
     public static final String WEBSITE = "https://spotbugs.github.io/";
 
     public static final String VERSION_STRING;
-
-    /**
-     * @deprecated Use {@link #VERSION_STRING} instead.
-    */
-    @Deprecated
-    public static final String RELEASE;
 
     private static String applicationName = "";
     private static String applicationVersion = "";
@@ -81,7 +74,7 @@ public class Version {
             version = "Development";
         }
 
-        RELEASE = VERSION_STRING = version;
+        VERSION_STRING = version;
     }
 
     public static void registerApplication(String name, String version) {
@@ -89,11 +82,11 @@ public class Version {
         applicationVersion = version;
     }
 
-    public static @CheckForNull String getApplicationName() {
+    public static @Nullable String getApplicationName() {
         return applicationName;
     }
 
-    public static @CheckForNull String getApplicationVersion() {
+    public static @Nullable String getApplicationVersion() {
         return applicationVersion;
     }
 
@@ -114,11 +107,11 @@ public class Version {
                 LOG.info("  description: {}", p.getShortDescription());
                 LOG.info("     provider: {}", p.getProvider());
                 String version = p.getVersion();
-                if (version != null && version.length() > 0) {
+                if (version != null && !version.isEmpty()) {
                     LOG.info("      version: {}", version);
                 }
                 String website = p.getWebsite();
-                if (website != null && website.length() > 0) {
+                if (website != null && !website.isEmpty()) {
                     LOG.info("      website: {}", website);
                 }
                 LOG.info("");

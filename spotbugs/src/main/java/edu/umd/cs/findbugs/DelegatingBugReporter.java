@@ -19,8 +19,8 @@
 
 package edu.umd.cs.findbugs;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.ba.MethodUnprofitableException;
 import edu.umd.cs.findbugs.classfile.ClassDescriptor;
@@ -60,12 +60,22 @@ public class DelegatingBugReporter implements BugReporter {
     }
 
     @Override
+    public void setPriorityAdjuster(PriorityAdjuster priorityAdjuster) {
+        delegate.setPriorityAdjuster(priorityAdjuster);
+    }
+
+    @Override
+    public PriorityAdjuster getPriorityAdjuster() {
+        return delegate.getPriorityAdjuster();
+    }
+
+    @Override
     public void observeClass(ClassDescriptor classDescriptor) {
         delegate.observeClass(classDescriptor);
     }
 
     @Override
-    public void reportBug(@Nonnull BugInstance bugInstance) {
+    public void reportBug(@NonNull BugInstance bugInstance) {
         delegate.reportBug(bugInstance);
     }
 
@@ -123,7 +133,7 @@ public class DelegatingBugReporter implements BugReporter {
     }
 
     @Override
-    public @CheckForNull BugCollection getBugCollection() {
+    public @Nullable BugCollection getBugCollection() {
         return delegate.getBugCollection();
     }
 }

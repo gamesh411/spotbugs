@@ -26,10 +26,8 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nullable;
-
 import org.apache.bcel.Const;
+import org.jspecify.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 
 import edu.umd.cs.findbugs.ba.AnalysisContext;
@@ -38,6 +36,7 @@ import edu.umd.cs.findbugs.ba.SignatureParser;
 import edu.umd.cs.findbugs.ba.XClass;
 import edu.umd.cs.findbugs.ba.XFactory;
 import edu.umd.cs.findbugs.ba.XMethod;
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 import edu.umd.cs.findbugs.ba.jsr305.TypeQualifierApplications;
 import edu.umd.cs.findbugs.classfile.CheckedAnalysisException;
 import edu.umd.cs.findbugs.classfile.ClassDescriptor;
@@ -64,7 +63,7 @@ public class MethodInfo extends MethodDescriptor implements XMethod {
         return new MethodInfo[sz];
     }
 
-    static public class Builder {
+    public static class Builder {
         int accessFlags;
 
         long variableHasName;
@@ -72,7 +71,9 @@ public class MethodInfo extends MethodDescriptor implements XMethod {
 
         final @SlashedClassName String className;
 
-        final String methodName, methodSignature;
+        final String methodName;
+
+        final String methodSignature;
 
         String[] exceptions;
 
@@ -231,9 +232,11 @@ public class MethodInfo extends MethodDescriptor implements XMethod {
 
     final boolean isStub;
 
+    final boolean hasPolymorphicSignature;
+
     final String methodSourceSignature;
 
-    final @CheckForNull String[] exceptions;
+    final String @Nullable [] exceptions;
 
     Map<ClassDescriptor, AnnotationValue> methodAnnotations;
 
@@ -276,16 +279,16 @@ public class MethodInfo extends MethodDescriptor implements XMethod {
         return getDatabase().identityMethods;
     }
 
-    static public IdentityHashMap<MethodInfo, Void> getInvokeDynamicMethods() {
+    public static IdentityHashMap<MethodInfo, Void> getInvokeDynamicMethods() {
         return getDatabase().invokeDynamicMethods;
     }
 
     MethodInfo(@SlashedClassName String className, String methodName, String methodSignature, String methodSourceSignature,
             int accessFlags, boolean isUnconditionalThrower, boolean isUnsupported, boolean usesConcurrency,
             boolean hasBackBranch, boolean isStub, boolean isIdentity,
-            boolean usesInvokeDynamic, int methodCallCount, @CheckForNull String[] exceptions,
-            @CheckForNull MethodDescriptor accessMethodForMethod,
-            @CheckForNull FieldDescriptor accessMethodForField,
+            boolean usesInvokeDynamic, int methodCallCount, String @Nullable [] exceptions,
+            @Nullable MethodDescriptor accessMethodForMethod,
+            @Nullable FieldDescriptor accessMethodForField,
             Map<ClassDescriptor, AnnotationValue> methodAnnotations, Map<Integer, Map<ClassDescriptor, AnnotationValue>> methodParameterAnnotations,
             long variableIsSynthetic) {
         super(className, methodName, methodSignature, (accessFlags & Const.ACC_STATIC) != 0);
@@ -318,14 +321,23 @@ public class MethodInfo extends MethodDescriptor implements XMethod {
         this.isStub = isStub;
         this.methodCallCount = methodCallCount;
         this.variableIsSynthetic = variableIsSynthetic;
+        this.hasPolymorphicSignature = computeHasPolymorphicSignature(methodAnnotations);
+    }
+
+    private boolean computeHasPolymorphicSignature(Map<ClassDescriptor, AnnotationValue> methodAnnotations) {
+        for (ClassDescriptor annotationDescriptor : methodAnnotations.keySet()) {
+            if ("java.lang.invoke.MethodHandle$PolymorphicSignature".equals(annotationDescriptor.getDottedClassName())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Override
-    public @CheckForNull String[] getThrownExceptions() {
+    public String @Nullable [] getThrownExceptions() {
         return exceptions;
     }
-
-
 
     @Override
     public boolean isUnconditionalThrower() {
@@ -350,7 +362,7 @@ public class MethodInfo extends MethodDescriptor implements XMethod {
 
     @Override
     public int getNumParams() {
-        return new SignatureParser(getSignature()).getNumParameters();
+        return new GenericSignatureParser(getSignature()).getNumParameters();
     }
 
     @Override
@@ -396,14 +408,14 @@ public class MethodInfo extends MethodDescriptor implements XMethod {
      */
     @Override
     public boolean isReturnTypeReferenceType() {
-        SignatureParser parser = new SignatureParser(getSignature());
+        GenericSignatureParser parser = new GenericSignatureParser(getSignature());
         String returnTypeSig = parser.getReturnTypeSignature();
         return SignatureParser.isReferenceType(returnTypeSig);
     }
 
     @Override
     public @DottedClassName String getClassName() {
-        return getClassDescriptor().toDottedClassName();
+        return getClassDescriptor().getDottedClassName();
     }
 
     @Override
@@ -616,7 +628,7 @@ public class MethodInfo extends MethodDescriptor implements XMethod {
     }
 
     @Override
-    public @CheckForNull AnnotatedObject getContainingScope() {
+    public @Nullable AnnotatedObject getContainingScope() {
         try {
             return Global.getAnalysisCache().getClassAnalysis(XClass.class, getClassDescriptor());
         } catch (CheckedAnalysisException e) {
@@ -655,12 +667,12 @@ public class MethodInfo extends MethodDescriptor implements XMethod {
     }
 
     @Override
-    public @CheckForNull MethodDescriptor getAccessMethodForMethod() {
+    public @Nullable MethodDescriptor getAccessMethodForMethod() {
         return getAccessmethodformethod().get(this);
     }
 
     @Override
-    public @CheckForNull FieldDescriptor getAccessMethodForField() {
+    public @Nullable FieldDescriptor getAccessMethodForField() {
         return getAccessmethodforfield().get(this);
     }
 
@@ -692,5 +704,36 @@ public class MethodInfo extends MethodDescriptor implements XMethod {
             return XFactory.createXMethod(access);
         }
         return this;
+    }
+
+    @Override
+    public boolean hasPolymorphicSignature() {
+        return hasPolymorphicSignature;
+    }
+
+    /**
+     * @param otherMethodSignature A method signature, for instance ()Ljava/lang/Object;
+     * @return a new {@link MethodInfo} with the given signature
+     */
+    public MethodInfo withSignature(String otherMethodSignature) {
+        return new MethodInfo(getSlashedClassName(),
+                getName(),
+                otherMethodSignature,
+                otherMethodSignature,
+                accessFlags,
+                getUnconditionalthrowers().containsKey(this),
+                getUnconditionalthrowers().containsKey(this),
+                usesConcurrency,
+                hasBackBranch,
+                isStub,
+                getIdentitymethods().containsKey(this),
+                getInvokeDynamicMethods().containsKey(this),
+                methodCallCount,
+                exceptions,
+                getAccessmethodformethod().get(this),
+                getAccessmethodforfield().get(this),
+                methodAnnotations,
+                methodParameterAnnotations,
+                variableIsSynthetic);
     }
 }

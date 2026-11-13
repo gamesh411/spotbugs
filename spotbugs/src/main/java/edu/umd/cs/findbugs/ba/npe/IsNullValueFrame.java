@@ -26,8 +26,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.ba.Frame;
 import edu.umd.cs.findbugs.ba.vna.ValueNumber;
@@ -39,7 +39,9 @@ import edu.umd.cs.findbugs.util.Util;
 public class IsNullValueFrame extends Frame<IsNullValue> {
 
     static class PointerEqualityInfo {
-        final ValueNumber addr1, addr2;
+        final ValueNumber addr1;
+
+        final ValueNumber addr2;
 
         final boolean areEqual;
 
@@ -136,15 +138,15 @@ public class IsNullValueFrame extends Frame<IsNullValue> {
         }
     }
 
-    public void setDecision(@CheckForNull IsNullConditionDecision decision) {
+    public void setDecision(@Nullable IsNullConditionDecision decision) {
         this.decision = decision;
     }
 
-    public @CheckForNull IsNullConditionDecision getDecision() {
+    public @Nullable IsNullConditionDecision getDecision() {
         return decision;
     }
 
-    public void setKnownValue(@Nonnull ValueNumber valueNumber, @Nonnull IsNullValue knownValue) {
+    public void setKnownValue(@NonNull ValueNumber valueNumber, @NonNull IsNullValue knownValue) {
         assert trackValueNumbers;
         if (valueNumber == null || knownValue == null) {
             throw new NullPointerException();
@@ -170,7 +172,7 @@ public class IsNullValueFrame extends Frame<IsNullValue> {
         }
     }
 
-    public @CheckForNull IsNullValue getKnownValue(ValueNumber valueNumber) {
+    public @Nullable IsNullValue getKnownValue(ValueNumber valueNumber) {
         assert trackValueNumbers;
         return knownValueMap.get(valueNumber);
     }

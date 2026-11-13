@@ -19,8 +19,9 @@
 
 package edu.umd.cs.findbugs;
 
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -40,14 +41,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-
 import org.dom4j.DocumentException;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.asm.FBClassReader;
 import edu.umd.cs.findbugs.ba.AnalysisContext;
 import edu.umd.cs.findbugs.ba.AnalysisException;
@@ -84,6 +83,7 @@ import edu.umd.cs.findbugs.plan.AnalysisPass;
 import edu.umd.cs.findbugs.plan.ExecutionPlan;
 import edu.umd.cs.findbugs.plan.OrderingConstraintException;
 import edu.umd.cs.findbugs.util.ClassName;
+import edu.umd.cs.findbugs.util.TopologicalSort;
 import edu.umd.cs.findbugs.util.TopologicalSort.OutEdges;
 
 /**
@@ -153,8 +153,8 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
 
     /**
      * @param service
-     *            The non-null {@link ExecutorService} instance to execute analysis. Caller is responsible to shutdown
-     *            it.
+     *            The non-null {@link ExecutorService} instance to execute analysis. Caller is responsible for shutting
+     *            it down.
      * @since 4.0
      */
     public FindBugs2(@NonNull ExecutorService service) {
@@ -178,7 +178,7 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
 
         String hostApp = System.getProperty(PROP_FINDBUGS_HOST_APP);
         String hostAppVersion = null;
-        if (hostApp == null || hostApp.trim().length() <= 0) {
+        if (hostApp == null || hostApp.trim().isEmpty()) {
             hostApp = "FindBugs TextUI";
             hostAppVersion = System.getProperty(PROP_FINDBUGS_HOST_APP_VERSION);
         }
@@ -279,9 +279,9 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
                     bugReporter = new DelegatingBugReporter(bugReporter) {
 
                         @Override
-                        public void reportBug(@Nonnull BugInstance bugInstance) {
+                        public void reportBug(@NonNull BugInstance bugInstance) {
                             String className = bugInstance.getPrimaryClass().getClassName();
-                            String resourceName = className.replace('.', '/') + ".class";
+                            String resourceName = ClassName.toSlashedClassName(className) + ".class";
                             if (classScreener.matches(resourceName)) {
                                 this.getDelegate().reportBug(bugInstance);
                             }
@@ -291,10 +291,10 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
 
                 if (executionPlan.isActive(NoteSuppressedWarnings.class)) {
                     SuppressionMatcher m = AnalysisContext.currentAnalysisContext().getSuppressionMatcher();
-                    bugReporter = new FilterBugReporter(bugReporter, m, false);
+                    bugReporter = new SuppressionMatcherBugReporter(bugReporter, m);
                 }
 
-                if (appClassList.size() == 0) {
+                if (appClassList.isEmpty()) {
                     Map<String, ICodeBaseEntry> codebase = classPath.getApplicationCodebaseEntries();
                     if (analysisOptions.noClassOk) {
                         System.err.println("No classfiles specified; output will have no warnings");
@@ -351,7 +351,7 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
 
     /**
      * <p>
-     * To avoid cyclic cross-references and allow GC after engine is not more needed. (used by Eclipse plugin)
+     * To avoid cyclic cross-references and allow GC after engine is no longer needed. (used by Eclipse plugin)
      * </p>
      * <p>
      * Caller probably need to shutdown the {@link ExecutorService} instance provided at constructor.
@@ -662,12 +662,7 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
                 try {
                     IAnalysisEngineRegistrar engineRegistrar = engineRegistrarClass.newInstance();
                     engineRegistrar.registerAnalysisEngines(analysisCache);
-                } catch (InstantiationException e) {
-                    IOException ioe = new IOException("Could not create analysis engine registrar for plugin "
-                            + plugin.getPluginId());
-                    ioe.initCause(e);
-                    throw ioe;
-                } catch (IllegalAccessException e) {
+                } catch (InstantiationException | IllegalAccessException e) {
                     IOException ioe = new IOException("Could not create analysis engine registrar for plugin "
                             + plugin.getPluginId());
                     ioe.initCause(e);
@@ -863,8 +858,8 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
     }
 
     public List<ClassDescriptor> sortByCallGraph(Collection<ClassDescriptor> classList, OutEdges<ClassDescriptor> outEdges) {
-        List<ClassDescriptor> evaluationOrder = edu.umd.cs.findbugs.util.TopologicalSort.sortByCallGraph(classList, outEdges);
-        edu.umd.cs.findbugs.util.TopologicalSort.countBadEdges(evaluationOrder, outEdges);
+        List<ClassDescriptor> evaluationOrder = TopologicalSort.sortByCallGraph(classList, outEdges);
+        TopologicalSort.countBadEdges(evaluationOrder, outEdges);
         return evaluationOrder;
 
     }
@@ -885,7 +880,7 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
      *            name of source info file (null if none)
      */
     public static void createAnalysisContext(Project project, List<ClassDescriptor> appClassList,
-            @CheckForNull String sourceInfoFileName) throws IOException {
+            @Nullable String sourceInfoFileName) throws IOException {
         AnalysisContext analysisContext = new AnalysisContext(project);
 
         // Make this the current analysis context
@@ -898,7 +893,7 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
         // If needed, load SourceInfoMap
         if (sourceInfoFileName != null) {
             SourceInfoMap sourceInfoMap = analysisContext.getSourceInfoMap();
-            sourceInfoMap.read(new FileInputStream(sourceInfoFileName));
+            sourceInfoMap.read(Files.newInputStream(Path.of(sourceInfoFileName)));
         }
     }
 
@@ -945,7 +940,11 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
             @Override
             public void enable(DetectorFactory factory) {
                 forcedEnabled.add(factory);
-                factory.setEnabledButNonReporting(true);
+            }
+
+            @Override
+            public boolean wasForciblyEnabled(DetectorFactory factory) {
+                return forcedEnabled.contains(factory);
             }
 
         };
@@ -980,6 +979,11 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
     private void analyzeApplication() throws InterruptedException {
         int passCount = 0;
         Profiler profiler = bugReporter.getProjectStats().getProfiler();
+        PriorityAdjuster priorityAdjuster = bugReporter.getPriorityAdjuster();
+        if (priorityAdjuster != null) {
+            priorityAdjuster.setFactoryChooser(executionPlan.getFactoryChooser());
+        }
+
         profiler.start(this.getClass());
         AnalysisContext.currentXFactory().canonicalizeAll();
         try {
@@ -1000,10 +1004,7 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
                     XClass info = Global.getAnalysisCache().getClassAnalysis(XClass.class, desc);
                     factory.intern(info);
                 } catch (CheckedAnalysisException e) {
-                    AnalysisContext.logError("Couldn't get class info for " + desc, e);
-                    badClasses.add(desc);
-                } catch (RuntimeException e) {
-                    AnalysisContext.logError("Couldn't get class info for " + desc, e);
+                    AnalysisContext.currentAnalysisContext().getLookupFailureCallback().reportMissingClass(desc, e);
                     badClasses.add(desc);
                 }
             }
@@ -1122,7 +1123,7 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
                                 LOG.warn("Thread interrupted during analysis", e);
                                 Thread.currentThread().interrupt();
                             } catch (ExecutionException e) {
-                                throw new AnalysisException("Exeption was thrown during analysis", e);
+                                throw new AnalysisException("Exception was thrown during analysis", e);
                             }
                         });
                         if (Thread.interrupted()) {
@@ -1197,7 +1198,7 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
      */
     private void logRecoverableException(ClassDescriptor classDescriptor, Detector2 detector, Throwable e) {
         bugReporter.logError(
-                "Exception analyzing " + classDescriptor.toDottedClassName() + " using detector "
+                "Exception analyzing " + classDescriptor.getDottedClassName() + " using detector "
                         + detector.getDetectorClassName(), e);
     }
 
@@ -1262,10 +1263,10 @@ public class FindBugs2 implements IFindBugsEngine, AutoCloseable {
         }
     }
 
-    @Nonnull
+    @NonNull
     Set<String> explicitlyEnabledBugReporterDecorators = Collections.emptySet();
 
-    @Nonnull
+    @NonNull
     Set<String> explicitlyDisabledBugReporterDecorators = Collections.emptySet();
 
     @Override

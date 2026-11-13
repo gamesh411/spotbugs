@@ -35,13 +35,14 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.TypeReference;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TypeAnnotationNode;
 
 import edu.umd.cs.findbugs.BugInstance;
 import edu.umd.cs.findbugs.BugReporter;
@@ -51,12 +52,10 @@ import edu.umd.cs.findbugs.ba.AnalysisContext;
 import edu.umd.cs.findbugs.ba.Hierarchy;
 import edu.umd.cs.findbugs.ba.NullnessAnnotation;
 import edu.umd.cs.findbugs.ba.NullnessAnnotation.Parser;
-import edu.umd.cs.findbugs.ba.SignatureParser;
 import edu.umd.cs.findbugs.ba.XClass;
 import edu.umd.cs.findbugs.ba.XMethod;
-import edu.umd.cs.findbugs.classfile.CheckedAnalysisException;
+import edu.umd.cs.findbugs.ba.generic.GenericSignatureParser;
 import edu.umd.cs.findbugs.classfile.ClassDescriptor;
-import edu.umd.cs.findbugs.classfile.Global;
 import edu.umd.cs.findbugs.classfile.MethodDescriptor;
 import edu.umd.cs.findbugs.classfile.analysis.AnnotationValue;
 import edu.umd.cs.findbugs.classfile.engine.asm.FindBugsASM;
@@ -64,9 +63,9 @@ import edu.umd.cs.findbugs.internalAnnotations.SlashedClassName;
 import edu.umd.cs.findbugs.util.ClassName;
 
 /**
- * Checks that overriding methods do not relax {@link Nonnull} (made
- * {@link CheckForNull}) on return values or {@link CheckForNull} (made
- * {@link Nonnull}) on parameters.
+ * Checks that overriding methods do not relax {@link NonNull} (made
+ * {@link Nullable}) on return values or {@link Nullable} (made
+ * {@link NonNull}) on parameters.
  *
  * The code accepts also old (deprecated) nullness annotations from
  * {@code edu.umd.cs.findbugs.annotations} package.
@@ -76,31 +75,8 @@ import edu.umd.cs.findbugs.util.ClassName;
  */
 public class CheckRelaxingNullnessAnnotation extends ClassNodeDetector {
 
-    XClass xclass;
-
     public CheckRelaxingNullnessAnnotation(BugReporter bugReporter) {
         super(bugReporter);
-    }
-
-    @Override
-    public void visitClass(ClassDescriptor classDescriptor) throws CheckedAnalysisException {
-        xclass = getClassInfo(classDescriptor);
-        if (xclass != null) {
-            super.visitClass(classDescriptor);
-        }
-    }
-
-    @CheckForNull
-    XClass getClassInfo(ClassDescriptor classDescr) {
-        if (classDescr == null) {
-            return null;
-        }
-        try {
-            return Global.getAnalysisCache().getClassAnalysis(XClass.class, classDescr);
-        } catch (CheckedAnalysisException e) {
-            bugReporter.reportMissingClass(classDescr);
-            return null;
-        }
     }
 
     @Override
@@ -140,19 +116,33 @@ public class CheckRelaxingNullnessAnnotation extends ClassNodeDetector {
             if (!relaxedNullReturn) {
                 relaxedNullReturn = containsRelaxedNonNull(invisibleAnnotations);
             }
-            boolean needsCheck = relaxedNullReturn;
-            if (invisibleParameterAnnotations != null || visibleParameterAnnotations != null) {
-                nonNullParameter = getNonnullOrNullableParams(visibleParameterAnnotations);
-                Map<Integer, NullnessAnnotation> nnp = getNonnullOrNullableParams(invisibleParameterAnnotations);
-                if (nnp != null) {
-                    if (nonNullParameter == null) {
-                        nonNullParameter = nnp;
-                    } else {
-                        nonNullParameter.putAll(nnp);
-                    }
-                }
-                needsCheck |= !nonNullParameter.isEmpty();
+            if (!relaxedNullReturn) {
+                relaxedNullReturn = containsRelaxedNonNullTypeUse(visibleTypeAnnotations);
             }
+            if (!relaxedNullReturn) {
+                relaxedNullReturn = containsRelaxedNonNullTypeUse(invisibleTypeAnnotations);
+            }
+
+            // A return annotation requires checking the inherited method contracts.
+            boolean needsCheck = relaxedNullReturn;
+
+            // Collect relevant nullness annotations by parameter index.
+            nonNullParameter = new HashMap<>();
+
+            // Handle parameter annotations (Java 5+)
+            if (invisibleParameterAnnotations != null || visibleParameterAnnotations != null) {
+                nonNullParameter.putAll(getNonnullOrNullableParams(visibleParameterAnnotations));
+                nonNullParameter.putAll(getNonnullOrNullableParams(invisibleParameterAnnotations));
+            }
+
+            // Handle type annotations on parameters (Java 8+)
+            if (visibleTypeAnnotations != null || invisibleTypeAnnotations != null) {
+                nonNullParameter.putAll(getNonnullOrNullableParamsFromTypeAnnotations(visibleTypeAnnotations));
+                nonNullParameter.putAll(getNonnullOrNullableParamsFromTypeAnnotations(invisibleTypeAnnotations));
+            }
+
+            // Check parameter annotations only when at least one relevant nullness annotation was found.
+            needsCheck |= !nonNullParameter.isEmpty();
 
             if (!needsCheck) {
                 // we can stop, there is no direct violations due annotations applied on the method.
@@ -174,18 +164,17 @@ public class CheckRelaxingNullnessAnnotation extends ClassNodeDetector {
                     done = checkMethod(method);
                 } else {
                     for (XMethod superMethod : superClass.getXMethods()) {
-                        if (name.equals(superMethod.getName()) && compatibleParameters(desc, superMethod.getSignature())) {
-                            if (checkMethod(superMethod)) {
-                                done = true;
-                                break;
-                            }
+                        if (name.equals(superMethod.getName()) && compatibleParameters(desc, superMethod.getSignature())
+                                && checkMethod(superMethod)) {
+                            done = true;
+                            break;
                         }
                     }
                 }
             }
         }
 
-        private final boolean checkMethod(@Nonnull XMethod method) {
+        private final boolean checkMethod(@NonNull XMethod method) {
             boolean foundAny = false;
             if (relaxedNullReturn && containsNullness(method.getAnnotations(), NONNULL)) {
                 BugInstance bug = new BugInstance(CheckRelaxingNullnessAnnotation.this, "NP_METHOD_RETURN_RELAXING_ANNOTATION",
@@ -194,35 +183,34 @@ public class CheckRelaxingNullnessAnnotation extends ClassNodeDetector {
                 bugReporter.reportBug(bug);
                 foundAny = true;
             }
-            if (nonNullParameter != null) {
-                for (Map.Entry<Integer, NullnessAnnotation> e : nonNullParameter.entrySet()) {
-                    int i = e.getKey();
-                    if (containsNullness(method.getParameterAnnotations(i), CHECK_FOR_NULL)) {
-                        NullnessAnnotation a = e.getValue();
-                        BugInstance bug = new BugInstance(CheckRelaxingNullnessAnnotation.this,
-                                "NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION", a.equals(NONNULL) ? HIGH_PRIORITY : NORMAL_PRIORITY);
-                        bug.addClassAndMethod(xmethod);
-                        LocalVariableAnnotation lva = null;
-                        if (localVariables != null) {
-                            for (LocalVariableNode lvn : localVariables) {
-                                if (lvn.index == i + 1) {
-                                    lva = new LocalVariableAnnotation(lvn.name, i + 1, 0);
-                                    lva.setDescription(LocalVariableAnnotation.PARAMETER_NAMED_ROLE);
-                                    break;
-                                }
+
+            for (Map.Entry<Integer, NullnessAnnotation> e : nonNullParameter.entrySet()) {
+                int i = e.getKey();
+                if (containsNullness(method.getParameterAnnotations(i), CHECK_FOR_NULL)) {
+                    NullnessAnnotation a = e.getValue();
+                    BugInstance bug = new BugInstance(CheckRelaxingNullnessAnnotation.this,
+                            "NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION", a.equals(NONNULL) ? HIGH_PRIORITY : NORMAL_PRIORITY);
+                    bug.addClassAndMethod(xmethod);
+                    LocalVariableAnnotation lva = null;
+                    if (localVariables != null) {
+                        for (LocalVariableNode lvn : localVariables) {
+                            if (lvn.index == i + 1) {
+                                lva = new LocalVariableAnnotation(lvn.name, i + 1, 0);
+                                lva.setDescription(LocalVariableAnnotation.PARAMETER_NAMED_ROLE);
+                                break;
                             }
                         }
-                        if (lva == null) {
-                            lva = new LocalVariableAnnotation("?", i + 1, 0);
-                            lva.setDescription(LocalVariableAnnotation.PARAMETER_ROLE);
-                        }
-                        bug.add(lva);
-                        bugReporter.reportBug(bug);
-                        foundAny = true;
                     }
+                    if (lva == null) {
+                        lva = new LocalVariableAnnotation("?", i + 1, 0);
+                        lva.setDescription(LocalVariableAnnotation.PARAMETER_ROLE);
+                    }
+                    bug.add(lva);
+                    bugReporter.reportBug(bug);
+                    foundAny = true;
                 }
-
             }
+
             return foundAny;
         }
     }
@@ -232,7 +220,7 @@ public class CheckRelaxingNullnessAnnotation extends ClassNodeDetector {
         private Queue<ClassDescriptor> interfacesToVisit;
         private final Set<ClassDescriptor> visited;
 
-        public HierarchyIterator(@Nonnull XClass xclass) {
+        public HierarchyIterator(@NonNull XClass xclass) {
             interfacesToVisit = new LinkedList<>(Arrays.asList(xclass.getInterfaceDescriptorList()));
             visited = new HashSet<>();
             superclass = getClassInfo(xclass.getSuperclassDescriptor());
@@ -263,7 +251,7 @@ public class CheckRelaxingNullnessAnnotation extends ClassNodeDetector {
         }
     }
 
-    static boolean containsRelaxedNonNull(@CheckForNull List<AnnotationNode> methodAnnotations) {
+    static boolean containsRelaxedNonNull(@Nullable List<AnnotationNode> methodAnnotations) {
         if (methodAnnotations == null) {
             return false;
         }
@@ -276,15 +264,44 @@ public class CheckRelaxingNullnessAnnotation extends ClassNodeDetector {
         return false;
     }
 
-    @CheckForNull
-    static Map<Integer, NullnessAnnotation> getNonnullOrNullableParams(@CheckForNull List<AnnotationNode>[] parameterAnnotations) {
-        if (parameterAnnotations == null) {
-            return null;
+    static boolean containsRelaxedNonNullTypeUse(@Nullable List<TypeAnnotationNode> typeAnnotations) {
+        if (typeAnnotations == null) {
+            return false;
         }
+        for (TypeAnnotationNode annotation : typeAnnotations) {
+            if (new TypeReference(annotation.typeRef).getSort() != TypeReference.METHOD_RETURN || annotation.typePath != null) {
+                // skip annotations on other targets or on a nested type (e.g. a type argument)
+                continue;
+            }
+            NullnessAnnotation nullness = getNullness(annotation.desc);
+            if (nullness == CHECK_FOR_NULL || nullness == NULLABLE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Extracts nullness annotations from parameter declaration annotations.
+     *
+     * <p>The map keys are the zero-based formal parameter indices, derived from
+     * each parameter's position in the parameter-annotation array. Annotations
+     * classified as {@link NullnessAnnotation#CHECK_FOR_NULL} are ignored.
+     *
+     * @param parameterAnnotations the parameter declaration annotations, or {@code null}
+     * @return a map from formal parameter indices to their nullness annotations,
+     *         or an empty map if the parameter-annotation array is {@code null}
+     *         or contains no relevant nullness annotations
+     */
+    static Map<Integer, NullnessAnnotation> getNonnullOrNullableParams(@Nullable List<AnnotationNode> @Nullable [] parameterAnnotations) {
         Map<Integer, NullnessAnnotation> nonNullParameter = new HashMap<>();
-        for (int i = 0; i < parameterAnnotations.length; i++) {
-            List<AnnotationNode> annotations = parameterAnnotations[i];
+        if (parameterAnnotations == null) {
+            return nonNullParameter;
+        }
+        int parameterIndex = 0;
+        for (List<AnnotationNode> annotations : parameterAnnotations) {
             if (annotations == null) {
+                parameterIndex++;
                 continue;
             }
             for (AnnotationNode annotation : annotations) {
@@ -292,14 +309,57 @@ public class CheckRelaxingNullnessAnnotation extends ClassNodeDetector {
                 if (nullness == null || nullness == CHECK_FOR_NULL) {
                     continue;
                 }
-                nonNullParameter.put(i, nullness);
+                nonNullParameter.put(parameterIndex, nullness);
             }
+            parameterIndex++;
         }
         return nonNullParameter;
     }
 
-    @CheckForNull
-    static NullnessAnnotation getNullness(@SlashedClassName String annotationDesc) {
+    /**
+     * Extracts nullness annotations from method type annotations on formal parameters.
+     *
+     * <p>Only annotations targeting {@link TypeReference#METHOD_FORMAL_PARAMETER}
+     * with an empty type path are considered, so annotations on type arguments,
+     * array components or other nested types do not count as the nullness of the
+     * parameter itself. The map keys are the zero-based formal parameter indices
+     * encoded in the type references, rather than positions in the type-annotation
+     * list, which may contain annotations for other targets. Annotations classified
+     * as {@link NullnessAnnotation#CHECK_FOR_NULL} are ignored.
+     *
+     * @param typeAnnotations the method's visible or invisible type annotations, or {@code null}
+     * @return a map from formal parameter indices to their nullness annotations,
+     *         or an empty map if the type-annotation list is {@code null}
+     *         or contains no relevant nullness annotations
+     */
+    static Map<Integer, NullnessAnnotation> getNonnullOrNullableParamsFromTypeAnnotations(
+            @Nullable List<TypeAnnotationNode> typeAnnotations) {
+        Map<Integer, NullnessAnnotation> nonNullParameter = new HashMap<>();
+        if (typeAnnotations == null) {
+            return nonNullParameter;
+        }
+
+        for (TypeAnnotationNode annotation : typeAnnotations) {
+            TypeReference typeReference = new TypeReference(annotation.typeRef);
+            if (typeReference.getSort() != TypeReference.METHOD_FORMAL_PARAMETER || annotation.typePath != null) {
+                // skip annotations on other targets or on a nested type (e.g. a type argument)
+                continue;
+            }
+
+            NullnessAnnotation nullness = getNullness(annotation.desc);
+            // TODO: Add support for JSpecify @Nullable on parameters.
+            // JSpecify @Nullable is classified as CHECK_FOR_NULL and is currently
+            // excluded from parameter-tightening analysis.
+            if (nullness == null || nullness == CHECK_FOR_NULL) {
+                continue;
+            }
+            nonNullParameter.put(typeReference.getFormalParameterIndex(), nullness);
+        }
+
+        return nonNullParameter;
+    }
+
+    static @Nullable NullnessAnnotation getNullness(@SlashedClassName String annotationDesc) {
         if (annotationDesc.length() < 2) {
             return null;
         }
@@ -319,8 +379,8 @@ public class CheckRelaxingNullnessAnnotation extends ClassNodeDetector {
     }
 
     static boolean compatibleParameters(String signature, String superSignature) {
-        SignatureParser sig = new SignatureParser(signature);
-        SignatureParser superSig = new SignatureParser(superSignature);
+        GenericSignatureParser sig = new GenericSignatureParser(signature);
+        GenericSignatureParser superSig = new GenericSignatureParser(superSignature);
         if (sig.getNumParameters() == superSig.getNumParameters()) {
             Iterator<String> params = sig.parameterSignatureIterator();
             Iterator<String> superParams = superSig.parameterSignatureIterator();

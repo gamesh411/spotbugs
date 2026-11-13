@@ -19,7 +19,7 @@
 
 package edu.umd.cs.findbugs.ba.bcp;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.ba.vna.ValueNumber;
 

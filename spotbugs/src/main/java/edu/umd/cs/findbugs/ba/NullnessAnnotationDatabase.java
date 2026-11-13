@@ -19,9 +19,10 @@
 
 package edu.umd.cs.findbugs.ba;
 
-import javax.annotation.CheckForNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.ba.npe.TypeQualifierNullnessAnnotationDatabase;
+import edu.umd.cs.findbugs.bytecode.MemberUtils;
 import edu.umd.cs.findbugs.classfile.Global;
 import edu.umd.cs.findbugs.log.Profiler;
 
@@ -47,8 +48,7 @@ public class NullnessAnnotationDatabase extends AnnotationDatabase<NullnessAnnot
         if (param == 0) {
             if ("equals".equals(m.getName()) && "(Ljava/lang/Object;)Z".equals(m.getSignature()) && !m.isStatic()) {
                 return false;
-            } else if ("main".equals(m.getName()) && "([Ljava/lang/String;)V".equals(m.getSignature()) && m.isStatic()
-                    && m.isPublic()) {
+            } else if (MemberUtils.isMainMethod(m)) {
                 return true;
             } else if (TypeQualifierNullnessAnnotationDatabase.assertsFirstParameterIsNonnull(m)) {
                 return true;
@@ -66,9 +66,8 @@ public class NullnessAnnotationDatabase extends AnnotationDatabase<NullnessAnnot
         return resolvedAnnotation == NullnessAnnotation.NONNULL;
     }
 
-    @CheckForNull
     @Override
-    public NullnessAnnotation getResolvedAnnotation(final Object o, boolean getMinimal) {
+    public @Nullable NullnessAnnotation getResolvedAnnotation(final Object o, boolean getMinimal) {
 
         Profiler profiler = Global.getAnalysisCache().getProfiler();
         profiler.start(this.getClass());
@@ -82,8 +81,7 @@ public class NullnessAnnotationDatabase extends AnnotationDatabase<NullnessAnnot
                 if (parameterNumber == 0) {
                     if ("equals".equals(m.getName()) && "(Ljava/lang/Object;)Z".equals(m.getSignature()) && !m.isStatic()) {
                         return NullnessAnnotation.CHECK_FOR_NULL;
-                    } else if ("main".equals(m.getName()) && "([Ljava/lang/String;)V".equals(m.getSignature()) && m.isStatic()
-                            && m.isPublic()) {
+                    } else if (MemberUtils.isMainMethod(m)) {
                         return NullnessAnnotation.NONNULL;
                     } else if (TypeQualifierNullnessAnnotationDatabase.assertsFirstParameterIsNonnull(m)) {
                         return NullnessAnnotation.NONNULL;
@@ -112,14 +110,11 @@ public class NullnessAnnotationDatabase extends AnnotationDatabase<NullnessAnnot
                     return NullnessAnnotation.NONNULL;
                 }
             }
-            NullnessAnnotation result = super.getResolvedAnnotation(o, getMinimal);
-            return result;
+            return super.getResolvedAnnotation(o, getMinimal);
         } finally {
             profiler.end(this.getClass());
         }
     }
-
-
 
     @Override
     public void addDefaultMethodAnnotation(String name, NullnessAnnotation annotation) {

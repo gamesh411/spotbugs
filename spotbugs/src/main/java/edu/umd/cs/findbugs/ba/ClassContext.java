@@ -30,9 +30,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
-
 import org.apache.bcel.Const;
 import org.apache.bcel.classfile.Code;
 import org.apache.bcel.classfile.CodeException;
@@ -42,6 +39,8 @@ import org.apache.bcel.classfile.LineNumberTable;
 import org.apache.bcel.classfile.Method;
 import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.MethodGen;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import edu.umd.cs.findbugs.AnalysisLocal;
 import edu.umd.cs.findbugs.OpcodeStack.JumpInfo;
@@ -66,7 +65,9 @@ import edu.umd.cs.findbugs.classfile.Global;
 import edu.umd.cs.findbugs.classfile.IAnalysisCache;
 import edu.umd.cs.findbugs.classfile.MethodDescriptor;
 import edu.umd.cs.findbugs.classfile.analysis.ClassInfo;
-import edu.umd.cs.findbugs.classfile.engine.bcel.NonExceptionPostdominatorsAnalysis;
+import edu.umd.cs.findbugs.classfile.engine.bcel.NonExceptionDominatorsAnalysis;
+import edu.umd.cs.findbugs.classfile.engine.bcel.NonImplicitExceptionDominatorsAnalysis;
+import edu.umd.cs.findbugs.classfile.engine.bcel.NonExceptionPostDominatorsAnalysis;
 import edu.umd.cs.findbugs.classfile.engine.bcel.NonImplicitExceptionPostDominatorsAnalysis;
 import edu.umd.cs.findbugs.classfile.engine.bcel.UnpackedBytecodeCallback;
 import edu.umd.cs.findbugs.classfile.engine.bcel.UnpackedCode;
@@ -115,10 +116,13 @@ public class ClassContext {
         this.jclass = jclass;
         this.analysisContext = analysisContext;
         this.methodAnalysisObjectMap = new HashMap<>();
+
+        ClassDescriptor classDescriptor = DescriptorFactory.createClassDescriptor(jclass);
+
         try {
-            classInfo = (ClassInfo) Global.getAnalysisCache().getClassAnalysis(XClass.class,
-                    DescriptorFactory.createClassDescriptor(jclass));
+            classInfo = (ClassInfo) Global.getAnalysisCache().getClassAnalysis(XClass.class, classDescriptor);
         } catch (CheckedAnalysisException e) {
+            analysisContext.getLookupFailureCallback().reportMissingClass(classDescriptor, e);
             throw new AssertionError("No ClassInfo for " + jclass);
         }
     }
@@ -236,7 +240,7 @@ public class ClassContext {
         return getClassDescriptor().getDottedClassName() + "." + method.getName() + method.getSignature();
     }
 
-    public @Nonnull List<Method> getMethodsInCallOrder() {
+    public @NonNull List<Method> getMethodsInCallOrder() {
         Map<XMethod, Method> map = new HashMap<>();
         for (Method m : getJavaClass().getMethods()) {
             XMethod xMethod = classInfo.findMethod(m.getName(), m.getSignature(), m.isStatic());
@@ -278,8 +282,7 @@ public class ClassContext {
      *         Code attribute (and thus cannot be analyzed) or if the method
      *         seems unprofitable to analyze
      */
-    @CheckForNull
-    public MethodGen getMethodGen(Method method) {
+    public @Nullable MethodGen getMethodGen(Method method) {
         return getMethodAnalysisNoException(MethodGen.class, method);
     }
 
@@ -304,7 +307,7 @@ public class ClassContext {
      *
      * @return the ConstantPoolGen
      */
-    public @Nonnull ConstantPoolGen getConstantPoolGen() {
+    public @NonNull ConstantPoolGen getConstantPoolGen() {
         return getClassAnalysisNoException(ConstantPoolGen.class);
     }
 
@@ -404,8 +407,7 @@ public class ClassContext {
      * @return the BitSet containing the opcodes which appear in the method, or
      *         null if the method has no code
      */
-    @CheckForNull
-    public BitSet getBytecodeSet(Method method) {
+    public @Nullable BitSet getBytecodeSet(Method method) {
         return getBytecodeSet(jclass, method);
     }
 
@@ -421,8 +423,7 @@ public class ClassContext {
      * @return the BitSet containing the opcodes which appear in the method, or
      *         null if the method has no code
      */
-    @CheckForNull
-    static public BitSet getBytecodeSet(JavaClass clazz, Method method) {
+    public static @Nullable BitSet getBytecodeSet(JavaClass clazz, Method method) {
 
         XMethod xmethod = XFactory.createXMethod(clazz, method);
         if (cachedBitsets().containsKey(xmethod)) {
@@ -455,8 +456,7 @@ public class ClassContext {
         return cachedBitsets_AL.get();
     }
 
-    @Nonnull
-    static public Set<Integer> getLoopExitBranches(Method method, MethodGen methodGen) {
+    public static @NonNull Set<Integer> getLoopExitBranches(Method method, MethodGen methodGen) {
 
         XMethod xmethod = XFactory.createXMethod(methodGen);
         if (cachedLoopExits().containsKey(xmethod)) {
@@ -482,7 +482,7 @@ public class ClassContext {
                 result.add(i);
             }
         }
-        if (result.size() == 0) {
+        if (result.isEmpty()) {
             result = Collections.<Integer>emptySet();
         }
 
@@ -540,8 +540,7 @@ public class ClassContext {
      * @return map of bytecode offsets to opcodes, empty if the method has no
      *         code
      */
-    @Nonnull
-    public short[] getOffsetToOpcodeMap(Method method) {
+    public short @NonNull [] getOffsetToOpcodeMap(Method method) {
         UnpackedCode unpackedCode = getMethodAnalysisNoException(UnpackedCode.class, method);
         return unpackedCode == null ? new short[0] : unpackedCode.getOffsetToBytecodeMap();
     }
@@ -593,7 +592,7 @@ public class ClassContext {
      */
     public DominatorsAnalysis getNonExceptionDominatorsAnalysis(Method method) throws CFGBuilderException,
             DataflowAnalysisException {
-        return getMethodAnalysis(DominatorsAnalysis.class, method);
+        return getMethodAnalysis(NonExceptionDominatorsAnalysis.class, method);
     }
 
     /**
@@ -604,9 +603,9 @@ public class ClassContext {
      *            the method
      * @return the DominatorsAnalysis
      */
-    public PostDominatorsAnalysis getNonImplicitExceptionDominatorsAnalysis(Method method) throws CFGBuilderException,
+    public DominatorsAnalysis getNonImplicitExceptionDominatorsAnalysis(Method method) throws CFGBuilderException,
             DataflowAnalysisException {
-        return getMethodAnalysis(NonImplicitExceptionPostDominatorsAnalysis.class, method);
+        return getMethodAnalysis(NonImplicitExceptionDominatorsAnalysis.class, method);
     }
 
     /**
@@ -619,7 +618,20 @@ public class ClassContext {
      */
     public PostDominatorsAnalysis getNonExceptionPostDominatorsAnalysis(Method method) throws CFGBuilderException,
             DataflowAnalysisException {
-        return getMethodAnalysis(NonExceptionPostdominatorsAnalysis.class, method);
+        return getMethodAnalysis(NonExceptionPostDominatorsAnalysis.class, method);
+    }
+
+    /**
+     * Get PostDominatorsAnalysis for given method, where implicit exception edges
+     * are ignored.
+     *
+     * @param method
+     *            the method
+     * @return the PostDominatorsAnalysis
+     */
+    public PostDominatorsAnalysis getNonImplicitExceptionPostDominatorsAnalysis(Method method) throws CFGBuilderException,
+            DataflowAnalysisException {
+        return getMethodAnalysis(NonImplicitExceptionPostDominatorsAnalysis.class, method);
     }
 
     /**
@@ -867,13 +879,9 @@ public class ClassContext {
         try {
             dumpDataflowInformation(method, getCFG(method), getValueNumberDataflow(method), getIsNullValueDataflow(method), null,
                     null);
-        } catch (DataflowAnalysisException e) {
+        } catch (DataflowAnalysisException | CFGBuilderException e) {
             AnalysisContext.logError(
                     "Could not dump data information for " + getJavaClass().getClassName() + "." + method.getName(), e);
-        } catch (CFGBuilderException e) {
-            AnalysisContext.logError(
-                    "Could not dump data information for " + getJavaClass().getClassName() + "." + method.getName(), e);
-
         }
     }
 
@@ -881,18 +889,14 @@ public class ClassContext {
         try {
             dumpDataflowInformation(method, getCFG(method), getValueNumberDataflow(method), getIsNullValueDataflow(method),
                     getUnconditionalValueDerefDataflow(method), getTypeDataflow(method));
-        } catch (DataflowAnalysisException e) {
+        } catch (DataflowAnalysisException | CFGBuilderException e) {
             AnalysisContext.logError(
                     "Could not dump data information for " + getJavaClass().getClassName() + "." + method.getName(), e);
-        } catch (CFGBuilderException e) {
-            AnalysisContext.logError(
-                    "Could not dump data information for " + getJavaClass().getClassName() + "." + method.getName(), e);
-
         }
     }
 
     public static void dumpDataflowInformation(Method method, CFG cfg, ValueNumberDataflow vnd, IsNullValueDataflow inv,
-            @CheckForNull UnconditionalValueDerefDataflow dataflow, @CheckForNull TypeDataflow typeDataflow)
+            @Nullable UnconditionalValueDerefDataflow dataflow, @Nullable TypeDataflow typeDataflow)
             throws DataflowAnalysisException {
         System.out.println("\n\n{ UnconditionalValueDerefAnalysis analysis for " + method.getName());
         TreeSet<Location> tree = new TreeSet<>();
@@ -993,9 +997,7 @@ public class ClassContext {
         try {
             MethodDescriptor methodDescriptor = BCELUtil.getMethodDescriptor(jclass, method);
             return Global.getAnalysisCache().getMethodAnalysis(analysisClass, methodDescriptor);
-        } catch (DataflowAnalysisException e) {
-            throw e;
-        } catch (CFGBuilderException e) {
+        } catch (DataflowAnalysisException | CFGBuilderException e) {
             throw e;
         } catch (CheckedAnalysisException e) {
             Throwable cause = e.getCause();

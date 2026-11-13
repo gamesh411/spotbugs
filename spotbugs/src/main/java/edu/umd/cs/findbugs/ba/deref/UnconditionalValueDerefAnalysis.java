@@ -24,13 +24,13 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import javax.annotation.CheckForNull;
-
 import org.apache.bcel.Const;
 import org.apache.bcel.classfile.Method;
 import org.apache.bcel.generic.ARETURN;
 import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.FieldInstruction;
+import org.apache.bcel.generic.GETFIELD;
+import org.apache.bcel.generic.GETSTATIC;
 import org.apache.bcel.generic.IFNONNULL;
 import org.apache.bcel.generic.INVOKEDYNAMIC;
 import org.apache.bcel.generic.Instruction;
@@ -41,6 +41,7 @@ import org.apache.bcel.generic.NEW;
 import org.apache.bcel.generic.ObjectType;
 import org.apache.bcel.generic.PUTFIELD;
 import org.apache.bcel.generic.PUTSTATIC;
+import org.jspecify.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 
 import edu.umd.cs.findbugs.SystemProperties;
@@ -97,9 +98,9 @@ public class UnconditionalValueDerefAnalysis extends BackwardDataflowAnalysis<Un
 
     public static final boolean DEBUG_CHECK_CALLS = SystemProperties.getBoolean("fnd.derefs.checkcalls.debug");
 
-    private static final int NULLCHECK1[] = { Opcodes.DUP, Opcodes.INVOKESPECIAL, Opcodes.ATHROW };
+    private static final int[] NULLCHECK1 = { Opcodes.DUP, Opcodes.INVOKESPECIAL, Opcodes.ATHROW };
 
-    private static final int NULLCHECK2[] = { Opcodes.DUP, Opcodes.LDC, Opcodes.INVOKESPECIAL, Opcodes.ATHROW };
+    private static final int[] NULLCHECK2 = { Opcodes.DUP, Opcodes.LDC, Opcodes.INVOKESPECIAL, Opcodes.ATHROW };
 
     private final CFG cfg;
 
@@ -215,8 +216,22 @@ public class UnconditionalValueDerefAnalysis extends BackwardDataflowAnalysis<Un
             throws DataflowAnalysisException {
         if (reportPotentialDereference(location, invDataflow.getFactAtLocation(location))) {
             ValueNumber vn = vnaFrame.getTopValue();
+            // A field null-guard is not a deref. getLoad() is also set when a
+            // local is stored into a field that is loaded in this method, so
+            // require the field load instruction itself.
+            if (isFieldLoad(location.getHandle().getPrev())) {
+                return;
+            }
             fact.addDeref(vn, location);
         }
+    }
+
+    private static boolean isFieldLoad(InstructionHandle handle) {
+        if (handle == null) {
+            return false;
+        }
+        Instruction instruction = handle.getInstruction();
+        return instruction instanceof GETFIELD || instruction instanceof GETSTATIC;
     }
 
     public static boolean reportPotentialDereference(Location location, IsNullValueFrame invFrame)
@@ -327,7 +342,7 @@ public class UnconditionalValueDerefAnalysis extends BackwardDataflowAnalysis<Un
     }
 
     public static Set<ValueNumber> checkUnconditionalDerefDatabase(Location location, ValueNumberFrame vnaFrame,
-            ConstantPoolGen constantPool, @CheckForNull IsNullValueFrame invFrame, TypeDataflow typeDataflow)
+            ConstantPoolGen constantPool, @Nullable IsNullValueFrame invFrame, TypeDataflow typeDataflow)
             throws DataflowAnalysisException {
         if (invFrame != null && !invFrame.isValid()) {
             return Collections.emptySet();
@@ -519,7 +534,7 @@ public class UnconditionalValueDerefAnalysis extends BackwardDataflowAnalysis<Un
     }
 
     public static Set<ValueNumber> checkAllNonNullParams(Location location, ValueNumberFrame vnaFrame,
-            ConstantPoolGen constantPool, @CheckForNull Method method, @CheckForNull IsNullValueDataflow invDataflow,
+            ConstantPoolGen constantPool, @Nullable Method method, @Nullable IsNullValueDataflow invDataflow,
             TypeDataflow typeDataflow) throws DataflowAnalysisException {
         IsNullValueFrame invFrame = null;
         if (invDataflow != null) {
@@ -538,7 +553,7 @@ public class UnconditionalValueDerefAnalysis extends BackwardDataflowAnalysis<Un
     }
 
     public static Set<ValueNumber> checkNonNullParams(Location location, ValueNumberFrame vnaFrame, ConstantPoolGen constantPool,
-            @CheckForNull Method method, @CheckForNull IsNullValueFrame invFrame) throws DataflowAnalysisException {
+            @Nullable Method method, @Nullable IsNullValueFrame invFrame) throws DataflowAnalysisException {
 
         if (invFrame != null && !invFrame.isValid()) {
             return Collections.emptySet();
@@ -906,7 +921,7 @@ public class UnconditionalValueDerefAnalysis extends BackwardDataflowAnalysis<Un
      *            edge to check
      * @return possibly-modified dataflow fact
      */
-    private @CheckForNull ValueNumber findValueKnownNonnullOnBranch(UnconditionalValueDerefSet fact, Edge edge) {
+    private @Nullable ValueNumber findValueKnownNonnullOnBranch(UnconditionalValueDerefSet fact, Edge edge) {
 
         IsNullValueFrame invFrame = invDataflow.getResultFact(edge.getSource());
         if (!invFrame.isValid()) {

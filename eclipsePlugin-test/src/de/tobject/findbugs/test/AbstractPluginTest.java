@@ -25,8 +25,8 @@ import static org.eclipse.jdt.testplugin.JavaProjectHelper.createJavaProject;
 import static org.eclipse.jdt.testplugin.JavaProjectHelper.delete;
 import static org.eclipse.jdt.testplugin.JavaProjectHelper.importResources;
 import static org.eclipse.jdt.testplugin.JavaProjectHelper.performDummySearch;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collections;
 import java.util.Set;
@@ -45,7 +45,7 @@ import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
-import org.eclipse.jdt.internal.junit.buildpath.BuildPathSupport;
+import org.eclipse.jdt.junit.JUnitCore;
 import org.eclipse.jdt.testplugin.JavaProjectHelper;
 import org.eclipse.jface.preference.IPreferenceStore;
 import org.eclipse.swt.widgets.Display;
@@ -53,8 +53,8 @@ import org.eclipse.ui.IViewPart;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.osgi.framework.Bundle;
 
 import de.tobject.findbugs.FindbugsPlugin;
@@ -106,7 +106,7 @@ public abstract class AbstractPluginTest {
     }
 
     protected static void addJUnitToProjectClasspath() throws JavaModelException {
-        IClasspathEntry cpe = BuildPathSupport.getJUnit4ClasspathEntry();
+        IClasspathEntry cpe = JavaCore.newContainerEntry(JUnitCore.JUNIT4_CONTAINER_PATH);
         JavaProjectHelper.addToClasspath(getJavaProject(), cpe);
     }
 
@@ -201,24 +201,29 @@ public abstract class AbstractPluginTest {
     protected static void processUiEvents(long delayInMilliseconds) {
         long start = System.currentTimeMillis();
         long sleepTime = delayInMilliseconds > 10 ? 10 : delayInMilliseconds;
+        boolean interrupted = false;
         while (true) {
             try {
                 Thread.sleep(sleepTime);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                interrupted = true;
             }
             processUiEvents();
             if (System.currentTimeMillis() - start > delayInMilliseconds) {
                 break;
             }
         }
+
+        if (interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
-    public AbstractPluginTest() {
+    protected AbstractPluginTest() {
         super();
     }
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         // Start with a clean FindBugs state
         clearBugsState();
@@ -233,7 +238,7 @@ public abstract class AbstractPluginTest {
         processUiEvents();
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws CoreException {
         // Clean the FindBugs state
         clearBugsState();
@@ -298,8 +303,8 @@ public abstract class AbstractPluginTest {
                 seenBugTypeCount++;
             }
         }
-        assertEquals("Expected " + expectedBugTypeCount + " of markers " + expectedBugType + " but seen " + seenBugTypeCount,
-                expectedBugTypeCount, seenBugTypeCount);
+        assertEquals(expectedBugTypeCount, seenBugTypeCount,
+                "Expected " + expectedBugTypeCount + " of markers " + expectedBugType + " but seen " + seenBugTypeCount);
     }
 
     protected void assertNoBugs() throws CoreException {
@@ -330,8 +335,8 @@ public abstract class AbstractPluginTest {
                 seenBugCount++;
             }
         }
-        assertEquals("Expected " + expectedBugCount + " of bugs " + expectedBugType + " but seen " + seenBugCount,
-                expectedBugCount, seenBugCount);
+        assertEquals(expectedBugCount, seenBugCount,
+                "Expected " + expectedBugCount + " of bugs " + expectedBugType + " but seen " + seenBugCount);
     }
 
     protected void clearBugsState() throws CoreException {
@@ -340,14 +345,12 @@ public abstract class AbstractPluginTest {
     }
 
     protected FindBugsWorker createFindBugsWorker() throws CoreException {
-        FindBugsWorker worker = new FindBugsWorker(getProject(), new NullProgressMonitor());
-        return worker;
+        return new FindBugsWorker(getProject(), new NullProgressMonitor());
     }
 
     protected BugContentProvider getBugContentProvider() throws PartInitException {
         BugExplorerView navigator = (BugExplorerView) showBugExplorerView();
-        BugContentProvider bugContentProvider = BugContentProvider.getProvider(navigator.getNavigatorContentService());
-        return bugContentProvider;
+        return BugContentProvider.getProvider(navigator.getNavigatorContentService());
     }
 
     protected Set<String> getExpectedBugPatterns() {
@@ -394,13 +397,19 @@ public abstract class AbstractPluginTest {
      */
     protected void joinJobFamily(Object family) {
         boolean finished = false;
+        boolean interrupted = false;
         while (!finished) {
             try {
                 getJobManager().join(family, null);
                 finished = true;
             } catch (InterruptedException e) {
                 // continue waiting
+                interrupted = true;
             }
+        }
+
+        if (interrupted) {
+            Thread.currentThread().interrupt();
         }
     }
 

@@ -22,8 +22,6 @@ package edu.umd.cs.findbugs.ba;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -33,7 +31,8 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
-import java.nio.file.Paths;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -55,6 +54,7 @@ import edu.umd.cs.findbugs.Project;
 import edu.umd.cs.findbugs.SourceLineAnnotation;
 import edu.umd.cs.findbugs.SystemProperties;
 import edu.umd.cs.findbugs.io.IO;
+import edu.umd.cs.findbugs.util.ClassName;
 import edu.umd.cs.findbugs.util.Util;
 
 /**
@@ -177,7 +177,7 @@ public class SourceFinder implements AutoCloseable {
                         GZIPOutputStream gOut = new GZIPOutputStream(out);
                         IO.copy(in, gOut);
                         gOut.close();
-                        byte data[] = out.toByteArray();
+                        byte[] data = out.toByteArray();
                         contents.put(name, data);
                         lastModified.put(name, e.getTime());
                     }
@@ -266,12 +266,12 @@ public class SourceFinder implements AutoCloseable {
         return r;
     }
 
-    SourceRepository makeJarURLConnectionSourceRepository(final String url) throws MalformedURLException, IOException {
+    SourceRepository makeJarURLConnectionSourceRepository(final String url) throws IOException {
         final File file = File.createTempFile("jar_cache", null);
         file.deleteOnExit();
         final BlockingSourceRepository r = new BlockingSourceRepository();
         Util.runInDameonThread(() -> {
-            try (InputStream in = open(url); OutputStream out = new FileOutputStream(file);) {
+            try (InputStream in = open(url); OutputStream out = Files.newOutputStream(file.toPath())) {
                 IO.copy(in, out);
                 r.setBase(new ZipSourceRepository(new ZipFile(file)));
             } catch (IOException e) {
@@ -287,7 +287,7 @@ public class SourceFinder implements AutoCloseable {
      * @throws IOException
      * @throws MalformedURLException
      */
-    private InputStream open(final String url) throws IOException, MalformedURLException {
+    private InputStream open(final String url) throws IOException {
         InputStream in = null;
         URLConnection connection = new URL(url).openConnection();
         if (getProject().isGuiAvaliable()) {
@@ -358,7 +358,7 @@ public class SourceFinder implements AutoCloseable {
 
         public ZipSourceRepository(@WillCloseWhenClosed ZipFile zipFile) throws IOException {
             this.zipFile = zipFile;
-            this.zipFileSystem = FileSystems.newFileSystem(Paths.get(zipFile.getName()), null);
+            this.zipFileSystem = FileSystems.newFileSystem(Path.of(zipFile.getName()), (ClassLoader) null);
         }
 
         @Override
@@ -530,14 +530,13 @@ public class SourceFinder implements AutoCloseable {
         String sourceRepositories = repositoryList.stream()
                 .map(Object::toString)
                 .collect(Collectors.joining(", "));
-        throw new FileNotFoundException("Can't find source file " + fileName + " (source repositories="
+        throw new IOException("Can't find source file " + fileName + " (source repositories="
                 + sourceRepositories + ")");
     }
 
     public static String getPlatformName(String packageName, String fileName) {
-        String platformName = packageName.replace('.', File.separatorChar) + (packageName.length() > 0 ? File.separator : "")
+        return packageName.replace('.', File.separatorChar) + (packageName.isEmpty() ? "" : File.separator)
                 + fileName;
-        return platformName;
     }
 
     public static String getPlatformName(SourceLineAnnotation source) {
@@ -549,8 +548,7 @@ public class SourceFinder implements AutoCloseable {
     }
 
     public static String getCanonicalName(String packageName, String fileName) {
-        String canonicalName = packageName.replace('.', '/') + (packageName.length() > 0 ? "/" : "") + fileName;
-        return canonicalName;
+        return ClassName.toSlashedClassName(packageName) + (packageName.isEmpty() ? "" : "/") + fileName;
     }
 
     public static String getOrGuessSourceFile(SourceLineAnnotation source) {

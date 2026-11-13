@@ -25,11 +25,14 @@ import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.annotation.Nonnull;
+import org.jspecify.annotations.NonNull;
+
+import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
 
@@ -47,8 +50,7 @@ import edu.umd.cs.findbugs.Project;
 public final class AnalyzingDialog extends FBDialog implements FindBugsProgress {
     private volatile boolean analysisFinished = false;
 
-    @Nonnull
-    private final Project project;
+    private final @NonNull Project project;
 
     private final AnalysisCallback callback;
 
@@ -64,7 +66,7 @@ public final class AnalyzingDialog extends FBDialog implements FindBugsProgress 
 
     private final JButton cancelButton;
 
-    public static void show(@Nonnull final Project project) {
+    public static void show(final @NonNull Project project) {
         AnalysisCallback callback = new AnalysisCallback() {
             @Override
             public void analysisFinished(BugCollection results) {
@@ -102,7 +104,7 @@ public final class AnalyzingDialog extends FBDialog implements FindBugsProgress 
      *            until the analysis is either finished or interrupted.
      */
 
-    public static void show(@Nonnull Project project, AnalysisCallback callback, boolean joinThread) {
+    public static void show(@NonNull Project project, AnalysisCallback callback, boolean joinThread) {
         AnalyzingDialog dialog = new AnalyzingDialog(project, callback, joinThread);
         MainFrame.getInstance().acquireDisplayWait();
         try {
@@ -134,7 +136,7 @@ public final class AnalyzingDialog extends FBDialog implements FindBugsProgress 
      *            analysis is complete. If true, the constructor does not return
      *            until the analysis is either finished or interrupted.
      */
-    private AnalyzingDialog(@Nonnull Project project, AnalysisCallback callback, boolean joinThread) {
+    private AnalyzingDialog(@NonNull Project project, AnalysisCallback callback, boolean joinThread) {
         if (project == null) {
             throw new NullPointerException("null project");
         }
@@ -156,8 +158,15 @@ public final class AnalyzingDialog extends FBDialog implements FindBugsProgress 
         SwingUtilities.invokeLater(() -> {
             setLayout(new BoxLayout(getContentPane(), BoxLayout.Y_AXIS));
             add(statusLabel);
-            add(progressBar);
+            JPanel progressPanel = new JPanel();
+            progressPanel.setLayout(new BoxLayout(progressPanel, BoxLayout.X_AXIS));
+            progressPanel.add(Box.createHorizontalStrut(20));
+            progressPanel.add(progressBar);
+            progressPanel.add(Box.createHorizontalStrut(20));
+            add(progressPanel);
+            add(Box.createVerticalStrut(10));
             add(cancelButton);
+            add(Box.createVerticalStrut(20));
             statusLabel.setAlignmentX(CENTER_ALIGNMENT);
             progressBar.setAlignmentX(CENTER_ALIGNMENT);
             cancelButton.setAlignmentX(CENTER_ALIGNMENT);
@@ -238,7 +247,7 @@ public final class AnalyzingDialog extends FBDialog implements FindBugsProgress 
         updateCount(0, numClasses);
     }
 
-    private class AnalysisThread extends Thread {
+    private final class AnalysisThread extends Thread {
         {
             // Give the analysis thread its (possibly user-defined) priority.
             // The default is a slightly lower priority than the UI.
